@@ -21,6 +21,7 @@ class Order:
     date: str
     notes: str
     sheet_synced: bool
+    payment_source: str = "shopee"
     category_name: str = ""
 
 
@@ -75,13 +76,14 @@ async def save_order(
     category_id: int,
     date: str,
     notes: str = "",
+    payment_source: str = "shopee",
 ) -> int:
     """Insert order and return its id."""
     async with await get_db() as db:
         cur = await db.execute(
-            """INSERT INTO orders (name, quantity, price, money, shop, category_id, date, notes)
-               VALUES (?, ?, ?, ?, ?, ?, ?, ?)""",
-            (name, quantity, price, money, shop, category_id, date, notes),
+            """INSERT INTO orders (name, quantity, price, money, shop, category_id, date, notes, payment_source)
+               VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)""",
+            (name, quantity, price, money, shop, category_id, date, notes, payment_source),
         )
         await db.commit()
         return cur.lastrowid  # type: ignore[return-value]
@@ -149,5 +151,6 @@ def _row_to_order(r) -> Order:
         date=r["date"],
         notes=r["notes"] or "",
         sheet_synced=bool(r["sheet_synced"]),
+        payment_source=r["payment_source"] if "payment_source" in r.keys() else "shopee",
         category_name=r["category_name"] if "category_name" in r.keys() else "",
     )

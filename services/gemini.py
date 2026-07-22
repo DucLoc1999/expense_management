@@ -18,6 +18,7 @@ class ExtractedOrder:
     money: int
     shop: str
     suggested_category: str
+    payment_source: str = "shopee"
 
 
 async def extract_orders(
@@ -115,17 +116,18 @@ def _parse_order(item: dict, categories: list[str]) -> ExtractedOrder | None:
         money = int(item.get("money", 0))
         shop = str(item.get("shop", "")).strip()
         suggested = str(item.get("suggested_category", "Khác")).strip()
+        payment_source = str(item.get("payment_source", "shopee")).strip()
 
         if not name or price <= 0:
             return None
         if quantity <= 0:
             quantity = 1
-        # Fallback: if money missing, calculate
         if money <= 0:
             money = price * quantity
-        # Validate suggested category is in list
         if suggested not in categories:
             suggested = "Khác"
+        if payment_source not in ("shopee", "bank_transfer", "other"):
+            payment_source = "shopee"
 
         return ExtractedOrder(
             name=name,
@@ -134,6 +136,7 @@ def _parse_order(item: dict, categories: list[str]) -> ExtractedOrder | None:
             money=money,
             shop=shop,
             suggested_category=suggested,
+            payment_source=payment_source,
         )
     except (TypeError, ValueError):
         return None

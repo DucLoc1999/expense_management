@@ -36,6 +36,7 @@ async def init_db() -> None:
                 category_id INTEGER NOT NULL,
                 date DATE NOT NULL,
                 notes TEXT DEFAULT '',
+                payment_source TEXT NOT NULL DEFAULT 'shopee',
                 sheet_synced BOOLEAN NOT NULL DEFAULT 0,
                 created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
                 FOREIGN KEY (category_id) REFERENCES categories(id)

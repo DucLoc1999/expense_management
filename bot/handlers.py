@@ -60,11 +60,13 @@ def _allowed(update: Update) -> bool:
 
 def _fmt_order(o: PendingOrder, idx: int, total: int) -> str:
     e = o.extracted
+    src_icon = {"shopee": "🛍", "bank_transfer": "🏦", "other": "📄"}.get(e.payment_source, "📄")
     return (
         f"*Order {idx + 1}/{total}*\n"
-        f"🛍 {e.name}\n"
+        f"{src_icon} {e.name}\n"
         f"Qty: {e.quantity}   Price: {e.price:,}₫   Total: {e.money:,}₫\n"
         f"Shop: {e.shop}\n"
+        f"Source: {e.payment_source}\n"
         f"Category: {o.category_name}"
         + (f"\nNotes: {o.notes}" if o.notes else "")
     )
@@ -147,8 +149,9 @@ async def cmd_history(update: Update, _context: ContextTypes.DEFAULT_TYPE) -> in
         return State.IDLE
     lines = []
     for o in orders:
+        src_icon = {"shopee": "🛍", "bank_transfer": "🏦", "other": "📄"}.get(o.payment_source, "📄")
         lines.append(
-            f"{o.date} | {o.name} | {o.money:,}₫ | {o.category_name}"
+            f"{src_icon} {o.date} | {o.name} | {o.money:,}₫ | {o.category_name}"
         )
     await update.message.reply_text(
         "*Last 10 orders:*\n" + "\n".join(lines), parse_mode="Markdown"
@@ -278,6 +281,7 @@ async def cb_confirm(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
         category_id=cat.id,
         date=date_str,
         notes=po.notes,
+        payment_source=po.extracted.payment_source,
     )
 
     row = OrderRow(
@@ -288,6 +292,7 @@ async def cb_confirm(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
         money=po.extracted.money,
         shop=po.extracted.shop,
         category=po.category_name,
+        payment_source=po.extracted.payment_source,
         notes=po.notes,
     )
     ok, _ = await append_one(row)
@@ -360,6 +365,7 @@ async def cb_confirm_all(update: Update, context: ContextTypes.DEFAULT_TYPE) -> 
             category_id=cat.id,
             date=date_str,
             notes=po.notes,
+            payment_source=po.extracted.payment_source,
         )
         order_ids.append(oid)
         rows.append(OrderRow(
@@ -370,6 +376,7 @@ async def cb_confirm_all(update: Update, context: ContextTypes.DEFAULT_TYPE) -> 
             money=po.extracted.money,
             shop=po.extracted.shop,
             category=po.category_name,
+            payment_source=po.extracted.payment_source,
             notes=po.notes,
         ))
 

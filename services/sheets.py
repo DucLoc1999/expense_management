@@ -13,7 +13,7 @@ SCOPES = [
     "https://www.googleapis.com/auth/spreadsheets",
 ]
 
-HEADERS = ["Date", "Item", "Quantity", "Price", "Money", "Shop", "Category", "Notes"]
+HEADERS = ["Date", "Item", "Quantity", "Price", "Money", "Shop", "Category", "Payment Source", "Notes"]
 SHEET_TAB = "Orders"
 
 
@@ -26,6 +26,7 @@ class OrderRow:
     money: int
     shop: str
     category: str
+    payment_source: str = "shopee"
     notes: str = ""
 
 
@@ -55,7 +56,7 @@ async def append_orders(rows: list[OrderRow]) -> tuple[bool, str | None]:
         if not existing:
             ws.append_row(HEADERS)
         data = [
-            [r.date, r.name, r.quantity, r.price, r.money, r.shop, r.category, r.notes]
+            [r.date, r.name, r.quantity, r.price, r.money, r.shop, r.category, r.payment_source, r.notes]
             for r in rows
         ]
         ws.append_rows(data, value_input_option="USER_ENTERED")
