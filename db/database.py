@@ -1,69 +1,50 @@
-import aiosqlite
-from pathlib import Path
+import logging
+
+import asyncpg
 import config
 
-DB_PATH = Path(config.DB_PATH)
+from db import migrate
+
+logger = logging.getLogger(__name__)
+
+_pool: asyncpg.Pool | None = None
 
 
-async def get_db() -> aiosqlite.Connection:
-    DB_PATH.parent.mkdir(parents=True, exist_ok=True)
-    db = await aiosqlite.connect(DB_PATH)
-    db.row_factory = aiosqlite.Row
-    await db.execute("PRAGMA foreign_keys = ON")
-    return db
+async def get_pool() -> asyncpg.Pool:
+    global _pool
+    if _pool is None:
+        schema = config.DB_SCHEMA
+
+        async def _init(conn: asyncpg.Connection) -> None:
+            if schema != "public":
+                await conn.execute(f'SET search_path TO "{schema}"')
+
+        _pool = await asyncpg.create_pool(config.DATABASE_URL, min_size=2, max_size=10, init=_init)
+    return _pool
 
 
-async def init_db() -> None:
-    DB_PATH.parent.mkdir(parents=True, exist_ok=True)
-    async with aiosqlite.connect(DB_PATH) as db:
-        db.row_factory = aiosqlite.Row
-        await db.execute("PRAGMA foreign_keys = ON")
-        await db.executescript("""
-            CREATE TABLE IF NOT EXISTS categories (
-                id INTEGER PRIMARY KEY AUTOINCREMENT,
-                name TEXT NOT NULL UNIQUE,
-                is_default BOOLEAN NOT NULL DEFAULT 0,
-                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-            );
-
-            CREATE TABLE IF NOT EXISTS orders (
-                id INTEGER PRIMARY KEY AUTOINCREMENT,
-                name TEXT NOT NULL,
-                quantity INTEGER NOT NULL DEFAULT 1,
-                price INTEGER NOT NULL,
-                money INTEGER NOT NULL,
-                shop TEXT NOT NULL,
-                category_id INTEGER NOT NULL,
-                date DATE NOT NULL,
-                notes TEXT DEFAULT '',
-                payment_source TEXT NOT NULL DEFAULT 'shopee',
-                sheet_synced BOOLEAN NOT NULL DEFAULT 0,
-                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-                FOREIGN KEY (category_id) REFERENCES categories(id)
-            );
-        """)
-        await db.commit()
-        await _seed_categories(db)
+async def get_db() -> asyncpg.Connection:
+    pool = await get_pool()
+    return await pool.acquire()
 
 
-_DEFAULT_CATEGORIES = [
-    "Ăn uống",
-    "Đồ gia dụng",
-    "Điện tử",
-    "Thời trang",
-    "Sức khỏe & Làm đẹp",
-    "Văn phòng phẩm",
-    "Mẹ & Bé",
-    "Thú cưng",
-    "Thể thao",
-    "Khác",
-]
+async def release_db(conn: asyncpg.Connection) -> None:
+    pool = await get_pool()
+    await pool.release(conn)
 
 
-async def _seed_categories(db: aiosqlite.Connection) -> None:
-    for name in _DEFAULT_CATEGORIES:
-        await db.execute(
-            "INSERT OR IGNORE INTO categories (name, is_default) VALUES (?, 1)",
-            (name,),
-        )
-    await db.commit()
+async def run_migrations() -> None:
+    pool = await get_pool()
+    await migrate.auto_baseline_if_needed(pool)
+    versions_applied = await migrate.run_all(pool)
+    if versions_applied:
+        logger.info("Applied migrations: %s", versions_applied)
+    else:
+        logger.info("No pending migrations")
+
+
+async def close_db() -> None:
+    global _pool
+    if _pool:
+        await _pool.close()
+        _pool = None

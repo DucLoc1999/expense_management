@@ -3,10 +3,11 @@ import re
 import httpx
 from dataclasses import dataclass
 import config
+from bot.i18n import _
 
 GEMINI_API_URL = (
     "https://generativelanguage.googleapis.com/v1beta/models/"
-    "gemini-2.0-flash:generateContent"
+    "gemini-3.6-flash:generateContent"
 )
 
 
@@ -28,22 +29,7 @@ async def extract_orders(
 ) -> tuple[list[ExtractedOrder], str | None]:
     """Return (orders, error_message). error_message is None on success."""
     category_list = ", ".join(categories)
-    prompt = (
-        "You are extracting expense data from payment screenshots.\n"
-        f"Available categories: {category_list}\n\n"
-        "Extract ALL expense items visible in the image and return a JSON array. "
-        "Each object must have these fields:\n"
-        '  "name": item name (string)\n'
-        '  "quantity": number of items (int, default 1)\n'
-        '  "price": price per item in VND (int, no decimals)\n'
-        '  "money": total paid in VND (int)\n'
-        '  "shop": seller/payee name (string)\n'
-        '  "suggested_category": best match from the category list above (string)\n'
-        '  "payment_source": one of "shopee", "bank_transfer", "other" (string)\n\n'
-        "If the image is not a payment receipt or no expenses are found, "
-        'return {"error": "No expenses found"}.\n'
-        "Return ONLY valid JSON, no markdown fences."
-    )
+    prompt = _("gemini.prompt", categories=category_list)
 
     payload = {
         "contents": [
@@ -59,7 +45,7 @@ async def extract_orders(
                 ]
             }
         ],
-        "generationConfig": {"temperature": 0.1, "maxOutputTokens": 2048},
+        "generationConfig": {"temperature": 0.1, "maxOutputTokens": 4096},
     }
 
     try:
@@ -81,7 +67,6 @@ async def extract_orders(
         return [], "Unexpected response from Gemini."
 
     raw_text = raw_text.strip()
-    # Strip markdown fences if present
     raw_text = re.sub(r"^```(?:json)?\s*", "", raw_text)
     raw_text = re.sub(r"\s*```$", "", raw_text)
 

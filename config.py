@@ -1,7 +1,8 @@
 import os
 from dotenv import load_dotenv
 
-load_dotenv()
+load_dotenv(".env")
+load_dotenv(".env.local")
 
 
 def _require(key: str) -> str:
@@ -15,6 +16,6 @@ TELEGRAM_BOT_TOKEN: str = _require("TELEGRAM_BOT_TOKEN")
 GEMINI_API_KEY: str = _require("GEMINI_API_KEY")
 GOOGLE_SHEETS_ID: str = _require("GOOGLE_SHEETS_ID")
 GOOGLE_SERVICE_ACCOUNT_FILE: str = _require("GOOGLE_SERVICE_ACCOUNT_FILE")
-ALLOWED_USER_ID: int = int(_require("ALLOWED_USER_ID"))
-SHEET_TAB_NAME: str = os.getenv("SHEET_TAB_NAME", "Orders")
-DB_PATH: str = os.getenv("DB_PATH", "data/expense.db")
+BOT_LOCALE: str = os.getenv("BOT_LOCALE", "vi")
+DATABASE_URL: str = _require("DATABASE_URL")
+DB_SCHEMA: str = os.getenv("DB_SCHEMA", "public")
