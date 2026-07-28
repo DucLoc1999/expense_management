@@ -1,6 +1,7 @@
 from telegram import Update
 from telegram.ext import ContextTypes
 
+import config
 from bot.decorators import require_auth
 from bot.responses import (
     welcome,
@@ -8,13 +9,11 @@ from bot.responses import (
     addcat_usage,
     delcat_usage,
     history_list,
-    export_all_synced,
-    export_syncing,
-    export_synced,
     export_failed,
     language_set,
     language_invalid,
 )
+from bot.keyboards import welcome_keyboard
 from bot.states import State
 from db.models import (
     get_categories,
@@ -29,7 +28,9 @@ from services.sheets import append_orders, OrderRow
 
 @require_auth
 async def cmd_start(update: Update, _context: ContextTypes.DEFAULT_TYPE) -> int:
-    await update.message.reply_text(welcome(), parse_mode="Markdown")
+    await update.message.reply_text(
+        welcome(), parse_mode="Markdown", reply_markup=welcome_keyboard()
+    )
     return State.IDLE
 
 
@@ -68,7 +69,7 @@ async def cmd_delcat(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
 
 @require_auth
 async def cmd_history(update: Update, _context: ContextTypes.DEFAULT_TYPE) -> int:
-    orders = await get_recent_orders(update.effective_user.id, limit=10)
+    orders = await get_recent_orders(update.effective_user.id, limit=5)
     await update.message.reply_text(
         history_list(orders), parse_mode="Markdown"
     )
@@ -78,11 +79,11 @@ async def cmd_history(update: Update, _context: ContextTypes.DEFAULT_TYPE) -> in
 @require_auth
 async def cmd_export(update: Update, _context: ContextTypes.DEFAULT_TYPE) -> int:
     tele_user_id = update.effective_user.id
+    sheet_url = f"https://docs.google.com/spreadsheets/d/{config.GOOGLE_SHEETS_ID}"
     unsynced = await get_unsynced_orders(tele_user_id)
     if not unsynced:
-        await update.message.reply_text(export_all_synced())
+        await update.effective_message.reply_text(sheet_url)
         return State.IDLE
-    await update.message.reply_text(export_syncing(len(unsynced)))
     rows = [
         OrderRow(
             date=o.date,
@@ -97,9 +98,9 @@ async def cmd_export(update: Update, _context: ContextTypes.DEFAULT_TYPE) -> int
     ok, err = await append_orders(rows, tele_user_id)
     if ok:
         await mark_synced([o.id for o in unsynced])
-        await update.message.reply_text(export_synced(len(unsynced)))
+        await update.effective_message.reply_text(sheet_url)
     else:
-        await update.message.reply_text(export_failed(err or ""))
+        await update.effective_message.reply_text(export_failed(err or ""))
     return State.IDLE
 
 

@@ -1,4 +1,6 @@
 from dataclasses import dataclass
+from datetime import datetime
+
 from db.database import get_pool
 
 
@@ -27,9 +29,12 @@ async def get_categories() -> list[Category]:
     pool = await get_pool()
     async with pool.acquire() as conn:
         rows = await conn.fetch(
-            "SELECT id, name, is_default FROM categories ORDER BY is_default DESC, name"
+            "SELECT id, name, is_default FROM categories ORDER BY is_default DESC, id"
         )
-    return [Category(id=r["id"], name=r["name"], is_default=bool(r["is_default"])) for r in rows]
+    return [
+        Category(id=r["id"], name=r["name"], is_default=bool(r["is_default"]))
+        for r in rows
+    ]
 
 
 async def add_category(name: str) -> tuple[bool, str]:
@@ -75,12 +80,21 @@ async def save_order(
     tele_user_id: int = 0,
 ) -> int:
     """Insert order and return its id."""
+    if isinstance(date, str):
+        date = datetime.strptime(date, "%Y-%m-%d").date()
     pool = await get_pool()
     async with pool.acquire() as conn:
         row = await conn.fetchrow(
             """INSERT INTO orders (name, money, shop, category_id, date, notes, payment_source, tele_user_id)
                VALUES ($1, $2, $3, $4, $5, $6, $7, $8) RETURNING id""",
-            name, money, shop, category_id, date, notes, payment_source, tele_user_id,
+            name,
+            money,
+            shop,
+            category_id,
+            date,
+            notes,
+            payment_source,
+            tele_user_id,
         )
         return row["id"]
 
@@ -120,9 +134,31 @@ async def get_recent_orders(tele_user_id: int, limit: int = 10) -> list[Order]:
                WHERE o.tele_user_id = $1
                ORDER BY o.created_at DESC
                LIMIT $2""",
-            tele_user_id, limit,
+            tele_user_id,
+            limit,
         )
     return [_row_to_order(r) for r in rows]
+
+
+async def get_sheet_id(tele_user_id: int) -> int | None:
+    pool = await get_pool()
+    async with pool.acquire() as conn:
+        row = await conn.fetchrow(
+            "SELECT sheet_id FROM telegram_users WHERE tele_user_id = $1",
+            tele_user_id,
+        )
+    return row["sheet_id"] if row else None
+
+
+async def set_sheet_id(tele_user_id: int, sheet_id: int) -> None:
+    pool = await get_pool()
+    async with pool.acquire() as conn:
+        await conn.execute(
+            "INSERT INTO telegram_users (tele_user_id, sheet_id) VALUES ($1, $2) "
+            "ON CONFLICT (tele_user_id) DO UPDATE SET sheet_id = $2",
+            tele_user_id,
+            sheet_id,
+        )
 
 
 async def get_category_by_name(name: str) -> Category | None:

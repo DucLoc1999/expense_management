@@ -27,8 +27,20 @@ from bot.handlers.callbacks import (
     cb_back,
     cb_editfield,
     cb_setcat,
+    cb_welcome_categories,
+    cb_welcome_history,
+    cb_welcome_language,
+    cb_cat_add,
+    cb_cat_edit,
+    cb_cat_remove,
+    cb_cat_rm,
+    cb_cat_list,
+    cb_history_export,
+    cb_language_set,
+    cb_main_menu,
+    cb_back_category_manager,
 )
-from bot.handlers.text import handle_field_input, handle_addcat_input
+from bot.handlers.text import handle_field_input
 
 logger = logging.getLogger(__name__)
 
@@ -61,5 +73,19 @@ def build_handlers():
         CallbackQueryHandler(cb_back, pattern=r"^back:\d+$"),
         CallbackQueryHandler(cb_editfield, pattern=r"^editfield:\d+:\w+$"),
         CallbackQueryHandler(cb_setcat, pattern=r"^setcat:\d+:.+$"),
+        CallbackQueryHandler(cb_welcome_categories, pattern=r"^welcome_categories$"),
+        CallbackQueryHandler(cb_welcome_history, pattern=r"^welcome_history$"),
+        CallbackQueryHandler(cb_welcome_language, pattern=r"^welcome_language$"),
+        CallbackQueryHandler(cb_cat_add, pattern=r"^cat_add$"),
+        CallbackQueryHandler(cb_cat_edit, pattern=r"^cat_edit$"),
+        CallbackQueryHandler(cb_cat_remove, pattern=r"^cat_remove$"),
+        CallbackQueryHandler(cb_cat_rm, pattern=r"^cat_rm:.+$"),
+        CallbackQueryHandler(cb_cat_list, pattern=r"^cat_list$"),
+        CallbackQueryHandler(cb_history_export, pattern=r"^history_export$"),
+        CallbackQueryHandler(cb_language_set, pattern=r"^lang:\w+$"),
+        CallbackQueryHandler(cb_main_menu, pattern=r"^main_menu$"),
+        CallbackQueryHandler(
+            cb_back_category_manager, pattern=r"^back_category_manager$"
+        ),
         MessageHandler(filters.TEXT & ~filters.COMMAND, handle_field_input),
     ]

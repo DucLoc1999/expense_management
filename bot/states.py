@@ -7,3 +7,4 @@ class State(IntEnum):
     DELETING_CATEGORY = auto()
     EDITING_FIELD = auto()
     EDITING_FIELD_INPUT = auto()
+    EDITING_CATEGORIES = auto()

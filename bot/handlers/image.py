@@ -24,7 +24,11 @@ async def handle_image(update: Update, context: ContextTypes.DEFAULT_TYPE) -> in
     if msg.photo:
         file = await msg.photo[-1].get_file()
         mime = "image/jpeg"
-    elif msg.document and msg.document.mime_type and msg.document.mime_type.startswith("image/"):
+    elif (
+        msg.document
+        and msg.document.mime_type
+        and msg.document.mime_type.startswith("image/")
+    ):
         file = await msg.document.get_file()
         mime = msg.document.mime_type
     else:
@@ -35,7 +39,6 @@ async def handle_image(update: Update, context: ContextTypes.DEFAULT_TYPE) -> in
 
     cats = await get_categories()
     cat_names = [c.name for c in cats]
-
     orders, error = await extract_orders(bytes(image_bytes), mime, cat_names)
 
     if error or not orders:

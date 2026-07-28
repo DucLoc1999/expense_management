@@ -1,6 +1,5 @@
 import json
 import logging
-import os
 from pathlib import Path
 
 logger = logging.getLogger(__name__)
@@ -42,6 +41,11 @@ def get_available_locales() -> list[str]:
     return list(_locales.keys())
 
 
+class _SafeDict(dict):
+    def __missing__(self, key):
+        return "{" + key + "}"
+
+
 def _(key: str, **kwargs) -> str:
     val = _locales.get(_active_locale, {}).get(key)
     if val is None:
@@ -49,8 +53,5 @@ def _(key: str, **kwargs) -> str:
     if val is None:
         val = key
     if kwargs:
-        try:
-            val = val.format(**kwargs)
-        except KeyError:
-            pass
+        val = val.format_map(_SafeDict(kwargs))
     return val

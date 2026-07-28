@@ -1,6 +1,7 @@
 from telegram import Update
 from telegram.ext import ContextTypes
 
+from bot.auth import is_admin
 from bot.decorators import require_auth
 from bot.models import _PENDING, _EDITING_IDX
 from bot.responses import (
@@ -16,14 +17,28 @@ from bot.responses import (
     which_field,
     choose_category,
     fmt_order,
+    categories_list,
+    category_edit_prompt,
+    category_menu_title,
+    category_add_prompt,
+    category_remove_prompt,
+    welcome,
 )
 from bot.keyboards import (
     order_review_keyboard,
     edit_field_keyboard,
     category_select_keyboard,
+    welcome_keyboard,
+    category_menu_keyboard,
+    category_remove_keyboard,
+    language_keyboard,
+    history_export_keyboard,
+    main_menu_only_keyboard,
+    back_to_category_manager_keyboard,
 )
+
 from bot.states import State
-from db.models import get_categories
+from db.models import get_categories, get_recent_orders, add_category, delete_category
 from services.order_service import confirm_order, confirm_all_orders
 
 
@@ -160,9 +175,15 @@ async def cb_editfield(update: Update, context: ContextTypes.DEFAULT_TYPE) -> in
 
     context.user_data[_EDITING_IDX] = idx
     from bot.models import _EDITING_FIELD
+
     context.user_data[_EDITING_FIELD] = field_name
     from bot.responses import enter_field
-    await query.edit_message_text(enter_field(field_name))
+
+    await query.edit_message_text(
+        enter_field(field_name),
+        reply_markup=category_menu_keyboard(True),
+        # main_menu_only_keyboard(),
+    )
     return State.EDITING_FIELD_INPUT
 
 
@@ -184,5 +205,204 @@ async def cb_setcat(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
         fmt_order(po, idx, len(pending)),
         parse_mode="Markdown",
         reply_markup=order_review_keyboard(idx, len(pending)),
+    )
+    return State.IDLE
+
+
+@require_auth
+async def cb_welcome_categories(
+    update: Update, _context: ContextTypes.DEFAULT_TYPE
+) -> int:
+    query = update.callback_query
+    await query.answer()
+    tele_user_id = update.effective_user.id
+    cats = await get_categories()
+    await query.edit_message_text(
+        categories_list(cats),
+        parse_mode="Markdown",
+        reply_markup=category_menu_keyboard(is_admin(tele_user_id)),
+    )
+    return State.IDLE
+
+
+@require_auth
+async def cb_welcome_history(
+    update: Update, _context: ContextTypes.DEFAULT_TYPE
+) -> int:
+    query = update.callback_query
+    await query.answer()
+    tele_user_id = update.effective_user.id
+    orders = await get_recent_orders(tele_user_id, limit=5)
+    from bot.responses import history_list
+
+    text = history_list(orders)
+    await query.edit_message_text(
+        text,
+        parse_mode="Markdown",
+        reply_markup=history_export_keyboard() if orders else None,
+    )
+    return State.IDLE
+
+
+@require_auth
+async def cb_welcome_language(
+    update: Update, _context: ContextTypes.DEFAULT_TYPE
+) -> int:
+    query = update.callback_query
+    await query.answer()
+    from bot.responses import language_invalid
+    from bot.i18n import get_available_locales
+
+    langs = ", ".join(get_available_locales())
+    await query.edit_message_text(
+        language_invalid(langs),
+        reply_markup=language_keyboard(),
+    )
+    return State.IDLE
+
+
+@require_auth
+async def cb_cat_add(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
+    query = update.callback_query
+    await query.answer()
+    tele_user_id = update.effective_user.id
+    if not is_admin(tele_user_id):
+        await query.edit_message_text("Access denied.")
+        return State.IDLE
+    await query.edit_message_text(
+        category_add_prompt(),
+        reply_markup=back_to_category_manager_keyboard(),
+    )
+    context.user_data["state"] = State.ADDING_CATEGORY
+    return State.ADDING_CATEGORY
+
+
+@require_auth
+async def cb_cat_edit(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
+    query = update.callback_query
+    await query.answer()
+    tele_user_id = update.effective_user.id
+    if not is_admin(tele_user_id):
+        await query.edit_message_text("Access denied.")
+        return State.IDLE
+    await query.edit_message_text(
+        category_edit_prompt(),
+        reply_markup=back_to_category_manager_keyboard(),
+    )
+    context.user_data["state"] = State.EDITING_CATEGORIES
+    return State.EDITING_CATEGORIES
+
+
+@require_auth
+async def cb_cat_list(update: Update, _context: ContextTypes.DEFAULT_TYPE) -> int:
+    query = update.callback_query
+    await query.answer()
+    cats = await get_categories()
+    from bot.responses import categories_list
+
+    await query.edit_message_text(
+        categories_list(cats),
+        parse_mode="Markdown",
+        reply_markup=back_to_category_manager_keyboard(),
+    )
+    return State.IDLE
+
+
+@require_auth
+async def cb_history_export(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
+    query = update.callback_query
+    await query.answer()
+    from bot.handlers.commands import cmd_export
+
+    return await cmd_export(update, context)
+
+
+@require_auth
+async def cb_language_set(update: Update, _context: ContextTypes.DEFAULT_TYPE) -> int:
+    query = update.callback_query
+    await query.answer()
+    code = query.data.split(":", 1)[1]
+    from bot.i18n import set_locale
+
+    if set_locale(code):
+        await query.edit_message_text(
+            welcome(), parse_mode="Markdown", reply_markup=welcome_keyboard()
+        )
+    else:
+        await query.edit_message_text("Invalid language.")
+    return State.IDLE
+
+
+@require_auth
+async def cb_cat_remove(update: Update, _context: ContextTypes.DEFAULT_TYPE) -> int:
+    query = update.callback_query
+    await query.answer()
+    tele_user_id = update.effective_user.id
+    if not is_admin(tele_user_id):
+        await query.edit_message_text("Access denied.")
+        return State.IDLE
+    cats = await get_categories()
+    removable = [c for c in cats if not c.is_default]
+    if not removable:
+        from bot.responses import category_remove_empty
+
+        await query.edit_message_text(category_remove_empty())
+        return State.IDLE
+    await query.edit_message_text(
+        category_remove_prompt(),
+        reply_markup=category_remove_keyboard(cats),
+    )
+    return State.IDLE
+
+
+@require_auth
+async def cb_cat_rm(update: Update, _context: ContextTypes.DEFAULT_TYPE) -> int:
+    query = update.callback_query
+    await query.answer()
+    tele_user_id = update.effective_user.id
+    if not is_admin(tele_user_id):
+        await query.edit_message_text("Access denied.")
+        return State.IDLE
+    cat_name = query.data.split(":", 1)[1]
+    ok, _ = await delete_category(cat_name)
+    cats = await get_categories()
+    if ok:
+        from bot.responses import category_remove_success
+
+        await query.edit_message_text(
+            category_remove_success(cat_name),
+            reply_markup=category_menu_keyboard(True),
+        )
+    else:
+        await query.edit_message_text(
+            categories_list(cats),
+            parse_mode="Markdown",
+            reply_markup=category_menu_keyboard(True),
+        )
+    return State.IDLE
+
+
+@require_auth
+async def cb_back_category_manager(
+    update: Update, _context: ContextTypes.DEFAULT_TYPE
+) -> int:
+    query = update.callback_query
+    await query.answer()
+    tele_user_id = update.effective_user.id
+    cats = await get_categories()
+    await query.edit_message_text(
+        categories_list(cats),
+        parse_mode="Markdown",
+        reply_markup=category_menu_keyboard(is_admin(tele_user_id)),
+    )
+    return State.IDLE
+
+
+@require_auth
+async def cb_main_menu(update: Update, _context: ContextTypes.DEFAULT_TYPE) -> int:
+    query = update.callback_query
+    await query.answer()
+    await query.edit_message_text(
+        welcome(), parse_mode="Markdown", reply_markup=welcome_keyboard()
     )
     return State.IDLE

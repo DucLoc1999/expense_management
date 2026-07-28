@@ -1,9 +1,12 @@
 import json
 import re
+import logging
 import httpx
 from dataclasses import dataclass
 import config
 from bot.i18n import _
+
+logger = logging.getLogger(__name__)
 
 GEMINI_API_URL = (
     "https://generativelanguage.googleapis.com/v1beta/models/"
@@ -30,6 +33,7 @@ async def extract_orders(
     """Return (orders, error_message). error_message is None on success."""
     category_list = ", ".join(categories)
     prompt = _("gemini.prompt", categories=category_list)
+    print("--------", prompt)
 
     payload = {
         "contents": [
@@ -63,7 +67,9 @@ async def extract_orders(
 
     try:
         raw_text = resp.json()["candidates"][0]["content"]["parts"][0]["text"]
-    except (KeyError, IndexError):
+        print("== GEMINI RAW TEXT ==", raw_text)
+    except (KeyError, IndexError) as e:
+        print("== GEMINI RESP KEYERROR ==", e, resp.text)
         return [], "Unexpected response from Gemini."
 
     raw_text = raw_text.strip()
@@ -72,13 +78,17 @@ async def extract_orders(
 
     try:
         parsed = json.loads(raw_text)
-    except json.JSONDecodeError:
+        print("== GEMINI PARSED ==", parsed)
+    except json.JSONDecodeError as e:
+        print("== JSON DECODE ERROR == ", e, "RAW:", raw_text)
         return [], "Could not read orders from this image. Try a clearer screenshot."
 
     if isinstance(parsed, dict) and "error" in parsed:
+        print("== GEMINI ERROR DICT ==", parsed["error"])
         return [], parsed["error"]
 
     if not isinstance(parsed, list):
+        print("== GEMINI NOT LIST ==", type(parsed), parsed)
         return [], "Could not read orders from this image. Try a clearer screenshot."
 
     orders: list[ExtractedOrder] = []
@@ -86,6 +96,8 @@ async def extract_orders(
         order = _parse_order(item, categories)
         if order:
             orders.append(order)
+        else:
+            print("== PARSE ORDER FAILED FOR ITEM ==", item)
 
     if not orders:
         return [], "Could not read orders from this image. Try a clearer screenshot."
@@ -97,18 +109,18 @@ def _parse_order(item: dict, categories: list[str]) -> ExtractedOrder | None:
     try:
         name = str(item.get("name", "")).strip()
         quantity = int(item.get("quantity", 1))
-        price = int(item.get("price", 0))
         money = int(item.get("money", 0))
+        price = int(item.get("price", money if money > 0 else 0))
         shop = str(item.get("shop", "")).strip()
         suggested = str(item.get("suggested_category", "Khác")).strip()
         payment_source = str(item.get("payment_source", "shopee")).strip()
 
-        if not name or price <= 0:
+        if not name or money <= 0:
             return None
         if quantity <= 0:
             quantity = 1
-        if money <= 0:
-            money = price * quantity
+        if price <= 0:
+            price = money
         if suggested not in categories:
             suggested = "Khác"
         if payment_source not in ("shopee", "bank_transfer", "other"):
@@ -123,10 +135,13 @@ def _parse_order(item: dict, categories: list[str]) -> ExtractedOrder | None:
             suggested_category=suggested,
             payment_source=payment_source,
         )
-    except (TypeError, ValueError):
+    except (TypeError, ValueError) as e:
+        print("== PARSE ORDER EXCEPTION ==", e)
         return None
 
 
 def _b64(data: bytes) -> str:
     import base64
+
     return base64.b64encode(data).decode()
+

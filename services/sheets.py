@@ -6,6 +6,7 @@ import gspread
 from google.oauth2.service_account import Credentials
 
 import config
+from db.models import get_sheet_id, set_sheet_id
 
 logger = logging.getLogger(__name__)
 
@@ -33,14 +34,34 @@ def _get_client() -> gspread.Client:
     return gspread.authorize(creds)
 
 
-def _get_worksheet(tele_user_id: int) -> gspread.Worksheet:
+async def _get_worksheet(tele_user_id: int) -> gspread.Worksheet:
     client = _get_client()
     spreadsheet = client.open_by_key(config.GOOGLE_SHEETS_ID)
     tab_name = str(tele_user_id)
+
+    sheet_id = await get_sheet_id(tele_user_id)
+
+    if sheet_id is not None:
+        try:
+            return spreadsheet.get_worksheet_by_id(sheet_id)
+        except gspread.WorksheetNotFound:
+            logger.warning("Sheet tab %s (id=%s) deleted, recreating", tab_name, sheet_id)
+
     try:
         ws = spreadsheet.worksheet(tab_name)
+        sheet_id = ws.id
+        await set_sheet_id(tele_user_id, sheet_id)
+        return ws
     except gspread.WorksheetNotFound:
+        pass
+
+    try:
         ws = spreadsheet.add_worksheet(title=tab_name, rows=1000, cols=len(HEADERS))
+    except gspread.exceptions.APIError:
+        ws = spreadsheet.worksheet(tab_name)
+
+    sheet_id = ws.id
+    await set_sheet_id(tele_user_id, sheet_id)
     return ws
 
 
@@ -49,7 +70,7 @@ async def append_orders(rows: list[OrderRow], tele_user_id: int) -> tuple[bool, 
     if not rows:
         return True, None
     try:
-        ws = _get_worksheet(tele_user_id)
+        ws = await _get_worksheet(tele_user_id)
         existing = ws.get_all_values()
         if not existing:
             ws.append_row(HEADERS)

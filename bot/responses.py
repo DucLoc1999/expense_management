@@ -152,3 +152,27 @@ def language_set(code: str) -> str:
 
 def language_invalid(langs: str) -> str:
     return _("language.invalid", langs=langs)
+
+
+def category_edit_prompt() -> str:
+    return _("category.edit_prompt")
+
+
+def category_menu_title() -> str:
+    return _("category.menu_title")
+
+
+def category_add_prompt() -> str:
+    return _("category.add_prompt")
+
+
+def category_remove_prompt() -> str:
+    return _("category.remove_prompt")
+
+
+def category_remove_success(name: str) -> str:
+    return _("category.remove_success", name=name)
+
+
+def category_remove_empty() -> str:
+    return _("category.remove_empty")
