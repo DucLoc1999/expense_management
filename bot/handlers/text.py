@@ -4,7 +4,7 @@ import re
 from telegram import Update
 from telegram.ext import ContextTypes
 
-from bot.auth import is_admin
+from bot.auth import is_admin, reload_users
 from bot.decorators import require_auth
 from bot.models import _PENDING, _EDITING_IDX, _EDITING_FIELD
 from bot.responses import (
@@ -12,8 +12,15 @@ from bot.responses import (
     edit_invalid,
     fmt_order,
     categories_list,
+    admin_adduser_ok,
+    admin_adduser_invalid,
+    admin_adduser_done,
+    admin_removeuser_done,
+    admin_removeuser_not_found,
+    admin_users_list,
 )
-from bot.keyboards import order_review_keyboard, category_menu_keyboard
+from bot.keyboards import order_review_keyboard, category_menu_keyboard, user_menu_keyboard
+from db.models import add_tele_user, remove_tele_user, get_all_tele_users
 from bot.states import State
 from db.models import add_category, get_categories
 
@@ -32,6 +39,10 @@ async def handle_field_input(update: Update, context: ContextTypes.DEFAULT_TYPE)
         return await _handle_cat_edit_input(update, context)
     if state == State.ADDING_CATEGORY:
         return await _handle_cat_add_input(update, context)
+    if state == State.ADDING_USER:
+        return await _handle_user_add_input(update, context)
+    if state == State.REMOVING_USER:
+        return await _handle_user_remove_input(update, context)
 
     idx = context.user_data.get(_EDITING_IDX)
     field_name = context.user_data.get(_EDITING_FIELD)
@@ -63,7 +74,7 @@ async def handle_field_input(update: Update, context: ContextTypes.DEFAULT_TYPE)
 
     await update.message.reply_text(
         fmt_order(po, idx, len(pending)),
-        parse_mode="Markdown",
+        parse_mode="HTML",
         reply_markup=order_review_keyboard(idx, len(pending)),
     )
     return State.IDLE
@@ -92,7 +103,7 @@ async def _handle_cat_edit_input(update: Update, context: ContextTypes.DEFAULT_T
     cats = await get_categories()
     await update.message.reply_text(
         categories_list(cats),
-        parse_mode="Markdown",
+        parse_mode="HTML",
         reply_markup=category_menu_keyboard(is_admin(update.effective_user.id)),
     )
     return State.IDLE
@@ -108,7 +119,62 @@ async def _handle_cat_add_input(update: Update, context: ContextTypes.DEFAULT_TY
     cats = await get_categories()
     await update.message.reply_text(
         categories_list(cats),
-        parse_mode="Markdown",
+        parse_mode="HTML",
         reply_markup=category_menu_keyboard(is_admin(update.effective_user.id)),
+    )
+    return State.IDLE
+
+
+async def _handle_user_add_input(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
+    text = update.message.text.strip()
+    parts = text.split(None, 1)
+    try:
+        tele_user_id = int(parts[0])
+    except (ValueError, IndexError):
+        await update.message.reply_text(admin_adduser_invalid())
+        return State.ADDING_USER
+    name = parts[1] if len(parts) > 1 else ""
+    await add_tele_user(tele_user_id, name)
+    await reload_users()
+    context.user_data.pop("state", None)
+    users = await get_all_tele_users()
+    await update.message.reply_text(
+        admin_adduser_done(tele_user_id),
+        parse_mode="HTML",
+    )
+    await update.message.reply_text(
+        admin_users_list(users),
+        parse_mode="HTML",
+        reply_markup=user_menu_keyboard(is_admin(update.effective_user.id)),
+    )
+    return State.IDLE
+
+
+async def _handle_user_remove_input(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
+    text = update.message.text.strip()
+    try:
+        tele_user_id = int(text)
+    except ValueError:
+        await update.message.reply_text("Invalid ID. Please enter a numeric user ID.")
+        return State.REMOVING_USER
+    ok = await remove_tele_user(tele_user_id)
+    if ok:
+        await reload_users()
+        context.user_data.pop("state", None)
+        await update.message.reply_text(
+            admin_removeuser_done(tele_user_id),
+            parse_mode="HTML",
+        )
+    else:
+        context.user_data.pop("state", None)
+        await update.message.reply_text(
+            admin_removeuser_not_found(tele_user_id),
+            parse_mode="HTML",
+        )
+    users = await get_all_tele_users()
+    await update.message.reply_text(
+        admin_users_list(users),
+        parse_mode="HTML",
+        reply_markup=user_menu_keyboard(is_admin(update.effective_user.id)),
     )
     return State.IDLE

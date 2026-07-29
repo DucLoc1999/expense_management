@@ -1,4 +1,10 @@
+import html
+
 from bot.i18n import _
+
+
+def _esc(text) -> str:
+    return html.escape(str(text))
 
 
 def welcome() -> str:
@@ -11,7 +17,7 @@ def categories_list(cats) -> str:
     lines = []
     for c in cats:
         marker = "•" if c.is_default else "◦"
-        lines.append(f"{marker} {c.name}")
+        lines.append(f"{marker} {_esc(c.name)}")
     return _("categories.title") + "\n".join(lines)
 
 
@@ -33,8 +39,10 @@ def history_list(orders) -> str:
     lines = []
     for o in orders:
         icon = _("source." + o.payment_source)
-        lines.append(f"{icon} {o.date} | {o.name} | {o.money:,}₫ | {o.category_name}")
-    return _("history.title") + "\n".join(lines)
+        name = _esc(o.name)
+        cat = _esc(o.category_name)
+        lines.append(f"{icon} <b>{name}</b>\n   {o.money:,}₫ · {cat} · {o.date}")
+    return _("history.title") + "\n\n".join(lines)
 
 
 def history_none() -> str:
@@ -131,17 +139,17 @@ def edit_invalid() -> str:
 
 def fmt_order(order, idx: int, total: int) -> str:
     icon = _("source." + order.extracted.payment_source)
-    notes_line = _("order.notes_fmt", notes=order.notes) if order.notes else ""
+    notes_line = _("order.notes_fmt", notes=_esc(order.notes)) if order.notes else ""
     return _(
         "order.format",
         idx=idx + 1,
         total=total,
         icon=icon,
-        name=order.extracted.name,
+        name=_esc(order.extracted.name),
         money=order.extracted.money,
-        shop=order.extracted.shop,
-        source=order.extracted.payment_source,
-        category=order.category_name,
+        shop=_esc(order.extracted.shop),
+        source=_esc(order.extracted.payment_source),
+        category=_esc(order.category_name),
         notes_line=notes_line,
     )
 
@@ -176,3 +184,60 @@ def category_remove_success(name: str) -> str:
 
 def category_remove_empty() -> str:
     return _("category.remove_empty")
+
+
+def admin_denied() -> str:
+    return _("admin.denied")
+
+
+def admin_users_list(users: list[dict]) -> str:
+    if not users:
+        return _("admin.users_empty")
+    parts = [_("admin.users_title")]
+    for i, u in enumerate(users, 1):
+        sheet = str(u["sheet_id"]) if u["sheet_id"] else "-"
+        name = _esc(u["name"] or "-")
+        role = _esc(u["role"] or "-")
+        uid = u["tele_user_id"]
+        parts.append(f"{i}. <code>{uid}</code> — {name} ({role}) — sheet: {sheet}")
+    return "\n".join(parts)
+
+
+def admin_adduser_prompt() -> str:
+    return _("admin.adduser.prompt")
+
+
+def admin_removeuser_prompt() -> str:
+    return _("admin.removeuser.prompt")
+
+
+def admin_adduser_invalid() -> str:
+    return _("admin.adduser.invalid")
+
+
+def admin_adduser_done(tele_user_id: int) -> str:
+    return _("admin.adduser.done", id=tele_user_id)
+
+
+def admin_removeuser_done(tele_user_id: int) -> str:
+    return _("admin.removeuser.done", id=tele_user_id)
+
+
+def admin_adduser_usage() -> str:
+    return _("admin.adduser.usage")
+
+
+def admin_adduser_ok(tele_user_id: int, name: str, role: str) -> str:
+    return _("admin.adduser.ok", id=tele_user_id, name=name or "-", role=role or "-")
+
+
+def admin_removeuser_usage() -> str:
+    return _("admin.removeuser.usage")
+
+
+def admin_removeuser_ok(tele_user_id: int) -> str:
+    return _("admin.removeuser.ok", id=tele_user_id)
+
+
+def admin_removeuser_not_found(tele_user_id: int) -> str:
+    return _("admin.removeuser.not_found", id=tele_user_id)

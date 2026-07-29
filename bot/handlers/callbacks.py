@@ -23,6 +23,8 @@ from bot.responses import (
     category_add_prompt,
     category_remove_prompt,
     welcome,
+    admin_denied,
+    admin_users_list,
 )
 from bot.keyboards import (
     order_review_keyboard,
@@ -35,10 +37,11 @@ from bot.keyboards import (
     history_export_keyboard,
     main_menu_only_keyboard,
     back_to_category_manager_keyboard,
+    user_menu_keyboard,
 )
 
 from bot.states import State
-from db.models import get_categories, get_recent_orders, add_category, delete_category
+from db.models import get_categories, get_recent_orders, add_category, delete_category, get_all_tele_users
 from services.order_service import confirm_order, confirm_all_orders
 
 
@@ -57,7 +60,7 @@ async def cb_confirm(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
     if po.status != "pending":
         await query.edit_message_text(
             fmt_order(po, idx, len(pending)) + "\n\n" + already_processed(),
-            parse_mode="Markdown",
+            parse_mode="HTML",
         )
         return State.IDLE
 
@@ -67,7 +70,7 @@ async def cb_confirm(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
     suffix = synced_suffix() if ok else saved_local_suffix()
     await query.edit_message_text(
         fmt_order(po, idx, len(pending)) + "\n\n" + saved_line(suffix),
-        parse_mode="Markdown",
+        parse_mode="HTML",
     )
     return State.IDLE
 
@@ -87,7 +90,7 @@ async def cb_skip(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
     po = pending[idx]
     await query.edit_message_text(
         fmt_order(po, idx, len(pending)) + "\n\n" + skipped(),
-        parse_mode="Markdown",
+        parse_mode="HTML",
     )
     return State.IDLE
 
@@ -126,7 +129,7 @@ async def cb_edit(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
     po = pending[idx]
     await query.edit_message_text(
         fmt_order(po, idx, len(pending)) + "\n\n" + which_field(),
-        parse_mode="Markdown",
+        parse_mode="HTML",
         reply_markup=edit_field_keyboard(idx),
     )
     return State.IDLE
@@ -146,7 +149,7 @@ async def cb_back(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
     po = pending[idx]
     await query.edit_message_text(
         fmt_order(po, idx, len(pending)),
-        parse_mode="Markdown",
+        parse_mode="HTML",
         reply_markup=order_review_keyboard(idx, len(pending)),
     )
     return State.IDLE
@@ -203,7 +206,7 @@ async def cb_setcat(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
     po = pending[idx]
     await query.edit_message_text(
         fmt_order(po, idx, len(pending)),
-        parse_mode="Markdown",
+        parse_mode="HTML",
         reply_markup=order_review_keyboard(idx, len(pending)),
     )
     return State.IDLE
@@ -219,7 +222,7 @@ async def cb_welcome_categories(
     cats = await get_categories()
     await query.edit_message_text(
         categories_list(cats),
-        parse_mode="Markdown",
+        parse_mode="HTML",
         reply_markup=category_menu_keyboard(is_admin(tele_user_id)),
     )
     return State.IDLE
@@ -238,7 +241,7 @@ async def cb_welcome_history(
     text = history_list(orders)
     await query.edit_message_text(
         text,
-        parse_mode="Markdown",
+        parse_mode="HTML",
         reply_markup=history_export_keyboard() if orders else None,
     )
     return State.IDLE
@@ -259,6 +262,54 @@ async def cb_welcome_language(
         reply_markup=language_keyboard(),
     )
     return State.IDLE
+
+
+@require_auth
+async def cb_welcome_users(
+    update: Update, _context: ContextTypes.DEFAULT_TYPE
+) -> int:
+    query = update.callback_query
+    await query.answer()
+    tele_user_id = update.effective_user.id
+    users = await get_all_tele_users()
+    await query.edit_message_text(
+        admin_users_list(users),
+        parse_mode="HTML",
+        reply_markup=user_menu_keyboard(is_admin(tele_user_id)),
+    )
+    return State.IDLE
+
+
+@require_auth
+async def cb_user_add(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
+    query = update.callback_query
+    await query.answer()
+    if not is_admin(update.effective_user.id):
+        await query.edit_message_text("Access denied.")
+        return State.IDLE
+    from bot.responses import admin_adduser_prompt
+    await query.edit_message_text(
+        admin_adduser_prompt(),
+        parse_mode="HTML",
+    )
+    context.user_data["state"] = State.ADDING_USER
+    return State.ADDING_USER
+
+
+@require_auth
+async def cb_user_remove(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
+    query = update.callback_query
+    await query.answer()
+    if not is_admin(update.effective_user.id):
+        await query.edit_message_text("Access denied.")
+        return State.IDLE
+    from bot.responses import admin_removeuser_prompt
+    await query.edit_message_text(
+        admin_removeuser_prompt(),
+        parse_mode="HTML",
+    )
+    context.user_data["state"] = State.REMOVING_USER
+    return State.REMOVING_USER
 
 
 @require_auth
@@ -302,7 +353,7 @@ async def cb_cat_list(update: Update, _context: ContextTypes.DEFAULT_TYPE) -> in
 
     await query.edit_message_text(
         categories_list(cats),
-        parse_mode="Markdown",
+        parse_mode="HTML",
         reply_markup=back_to_category_manager_keyboard(),
     )
     return State.IDLE
@@ -326,7 +377,7 @@ async def cb_language_set(update: Update, _context: ContextTypes.DEFAULT_TYPE) -
 
     if set_locale(code):
         await query.edit_message_text(
-            welcome(), parse_mode="Markdown", reply_markup=welcome_keyboard()
+            welcome(), parse_mode="HTML", reply_markup=welcome_keyboard()
         )
     else:
         await query.edit_message_text("Invalid language.")
@@ -376,7 +427,7 @@ async def cb_cat_rm(update: Update, _context: ContextTypes.DEFAULT_TYPE) -> int:
     else:
         await query.edit_message_text(
             categories_list(cats),
-            parse_mode="Markdown",
+            parse_mode="HTML",
             reply_markup=category_menu_keyboard(True),
         )
     return State.IDLE
@@ -392,7 +443,7 @@ async def cb_back_category_manager(
     cats = await get_categories()
     await query.edit_message_text(
         categories_list(cats),
-        parse_mode="Markdown",
+        parse_mode="HTML",
         reply_markup=category_menu_keyboard(is_admin(tele_user_id)),
     )
     return State.IDLE
@@ -403,6 +454,6 @@ async def cb_main_menu(update: Update, _context: ContextTypes.DEFAULT_TYPE) -> i
     query = update.callback_query
     await query.answer()
     await query.edit_message_text(
-        welcome(), parse_mode="Markdown", reply_markup=welcome_keyboard()
+        welcome(), parse_mode="HTML", reply_markup=welcome_keyboard()
     )
     return State.IDLE

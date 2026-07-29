@@ -3,7 +3,7 @@ import logging
 from telegram.ext import ApplicationBuilder
 
 import config
-from bot.auth import load_users
+from bot.auth import reload_users
 from bot.i18n import load_locales, set_locale
 from db.database import run_migrations
 from bot.handlers import build_handlers, error_handler
@@ -19,7 +19,7 @@ async def post_init(application) -> None:
     load_locales()
     set_locale(config.BOT_LOCALE)
     await run_migrations()
-    await load_users()
+    await reload_users()
     logger.info("Locale set to '%s'. Database initialised.", config.BOT_LOCALE)
 
 

@@ -2,6 +2,7 @@ from telegram import Update
 from telegram.ext import ContextTypes
 
 import config
+from bot.auth import is_admin, reload_users
 from bot.decorators import require_auth
 from bot.responses import (
     welcome,
@@ -12,6 +13,13 @@ from bot.responses import (
     export_failed,
     language_set,
     language_invalid,
+    admin_denied,
+    admin_users_list,
+    admin_adduser_usage,
+    admin_adduser_ok,
+    admin_removeuser_usage,
+    admin_removeuser_ok,
+    admin_removeuser_not_found,
 )
 from bot.keyboards import welcome_keyboard
 from bot.states import State
@@ -22,6 +30,9 @@ from db.models import (
     get_recent_orders,
     get_unsynced_orders,
     mark_synced,
+    add_tele_user,
+    remove_tele_user,
+    get_all_tele_users,
 )
 from services.sheets import append_orders, OrderRow
 
@@ -29,7 +40,7 @@ from services.sheets import append_orders, OrderRow
 @require_auth
 async def cmd_start(update: Update, _context: ContextTypes.DEFAULT_TYPE) -> int:
     await update.message.reply_text(
-        welcome(), parse_mode="Markdown", reply_markup=welcome_keyboard()
+        welcome(), parse_mode="HTML", reply_markup=welcome_keyboard()
     )
     return State.IDLE
 
@@ -38,7 +49,7 @@ async def cmd_start(update: Update, _context: ContextTypes.DEFAULT_TYPE) -> int:
 async def cmd_categories(update: Update, _context: ContextTypes.DEFAULT_TYPE) -> int:
     cats = await get_categories()
     await update.message.reply_text(
-        categories_list(cats), parse_mode="Markdown"
+        categories_list(cats), parse_mode="HTML"
     )
     return State.IDLE
 
@@ -71,7 +82,7 @@ async def cmd_delcat(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
 async def cmd_history(update: Update, _context: ContextTypes.DEFAULT_TYPE) -> int:
     orders = await get_recent_orders(update.effective_user.id, limit=5)
     await update.message.reply_text(
-        history_list(orders), parse_mode="Markdown"
+        history_list(orders), parse_mode="HTML"
     )
     return State.IDLE
 
@@ -117,4 +128,59 @@ async def cmd_language(update: Update, context: ContextTypes.DEFAULT_TYPE) -> in
         await update.message.reply_text(language_set(code))
     else:
         await update.message.reply_text(language_invalid(langs))
+    return State.IDLE
+
+
+@require_auth
+async def cmd_users(update: Update, _context: ContextTypes.DEFAULT_TYPE) -> int:
+    if not is_admin(update.effective_user.id):
+        await update.message.reply_text(admin_denied())
+        return State.IDLE
+    users = await get_all_tele_users()
+    await update.message.reply_text(admin_users_list(users), parse_mode="HTML")
+    return State.IDLE
+
+
+@require_auth
+async def cmd_adduser(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
+    if not is_admin(update.effective_user.id):
+        await update.message.reply_text(admin_denied())
+        return State.IDLE
+    args = context.args
+    if not args:
+        await update.message.reply_text(admin_adduser_usage())
+        return State.IDLE
+    try:
+        tele_user_id = int(args[0])
+    except ValueError:
+        await update.message.reply_text(admin_adduser_usage())
+        return State.IDLE
+    name = args[1] if len(args) > 1 else ""
+    role = args[2] if len(args) > 2 else ""
+    await add_tele_user(tele_user_id, name, role)
+    await reload_users()
+    await update.message.reply_text(admin_adduser_ok(tele_user_id, name, role))
+    return State.IDLE
+
+
+@require_auth
+async def cmd_removeuser(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
+    if not is_admin(update.effective_user.id):
+        await update.message.reply_text(admin_denied())
+        return State.IDLE
+    args = context.args
+    if not args:
+        await update.message.reply_text(admin_removeuser_usage())
+        return State.IDLE
+    try:
+        tele_user_id = int(args[0])
+    except ValueError:
+        await update.message.reply_text(admin_removeuser_usage())
+        return State.IDLE
+    ok = await remove_tele_user(tele_user_id)
+    if ok:
+        await reload_users()
+        await update.message.reply_text(admin_removeuser_ok(tele_user_id))
+    else:
+        await update.message.reply_text(admin_removeuser_not_found(tele_user_id))
     return State.IDLE

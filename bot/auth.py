@@ -7,16 +7,18 @@ logger = logging.getLogger(__name__)
 
 _allowed_users: dict[int, str] = {}
 _user_sheet_ids: dict[int, int] = {}
+_user_names: dict[int, str] = {}
 
 
-async def load_users() -> None:
-    global _allowed_users, _user_sheet_ids
+async def reload_users() -> None:
+    global _allowed_users, _user_sheet_ids, _user_names
     pool = await get_pool()
     async with pool.acquire() as conn:
         rows = await conn.fetch(
-            "SELECT tele_user_id, role, sheet_id FROM telegram_users"
+            "SELECT tele_user_id, name, role, sheet_id FROM telegram_users"
         )
     _allowed_users = {r["tele_user_id"]: r["role"] for r in rows}
+    _user_names = {r["tele_user_id"]: r["name"] for r in rows}
     _user_sheet_ids = {
         r["tele_user_id"]: r["sheet_id"]
         for r in rows
@@ -25,7 +27,10 @@ async def load_users() -> None:
     logger.info("Loaded %d authorized user(s)", len(_allowed_users))
 
 
-def is_authorized(tele_user_id: int) -> bool:
+async def is_authorized(tele_user_id: int) -> bool:
+    if tele_user_id in _allowed_users:
+        return True
+    await reload_users()
     return tele_user_id in _allowed_users
 
 

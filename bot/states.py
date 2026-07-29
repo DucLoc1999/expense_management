@@ -8,3 +8,5 @@ class State(IntEnum):
     EDITING_FIELD = auto()
     EDITING_FIELD_INPUT = auto()
     EDITING_CATEGORIES = auto()
+    ADDING_USER = auto()
+    REMOVING_USER = auto()

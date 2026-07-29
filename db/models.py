@@ -150,6 +150,35 @@ async def get_sheet_id(tele_user_id: int) -> int | None:
     return row["sheet_id"] if row else None
 
 
+async def add_tele_user(tele_user_id: int, name: str = "", role: str = "") -> None:
+    pool = await get_pool()
+    async with pool.acquire() as conn:
+        await conn.execute(
+            "INSERT INTO telegram_users (tele_user_id, name, role) VALUES ($1, $2, $3) "
+            "ON CONFLICT (tele_user_id) DO UPDATE SET name = $2, role = $3",
+            tele_user_id, name, role,
+        )
+
+
+async def remove_tele_user(tele_user_id: int) -> bool:
+    pool = await get_pool()
+    async with pool.acquire() as conn:
+        result = await conn.execute(
+            "DELETE FROM telegram_users WHERE tele_user_id = $1",
+            tele_user_id,
+        )
+    return result != "DELETE 0"
+
+
+async def get_all_tele_users() -> list[dict]:
+    pool = await get_pool()
+    async with pool.acquire() as conn:
+        rows = await conn.fetch(
+            "SELECT tele_user_id, name, role, sheet_id FROM telegram_users ORDER BY tele_user_id"
+        )
+    return [dict(r) for r in rows]
+
+
 async def set_sheet_id(tele_user_id: int, sheet_id: int) -> None:
     pool = await get_pool()
     async with pool.acquire() as conn:

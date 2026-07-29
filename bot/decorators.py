@@ -10,7 +10,7 @@ from bot.states import State
 def require_auth(func):
     @functools.wraps(func)
     async def wrapper(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
-        if update.effective_user is None or not is_authorized(update.effective_user.id):
+        if update.effective_user is None or not await is_authorized(update.effective_user.id):
             if update.callback_query:
                 await update.callback_query.answer()
             return State.IDLE

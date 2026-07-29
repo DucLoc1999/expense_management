@@ -100,6 +100,9 @@ def welcome_keyboard() -> InlineKeyboardMarkup:
             ],
             [
                 InlineKeyboardButton(
+                    _("keyboard.users"), callback_data="welcome_users"
+                ),
+                InlineKeyboardButton(
                     _("keyboard.language"), callback_data="welcome_language"
                 ),
             ],
@@ -170,3 +173,17 @@ def history_export_keyboard() -> InlineKeyboardMarkup:
             [_main_menu_btn()],
         ]
     )
+
+
+def user_menu_keyboard(is_admin: bool = False) -> InlineKeyboardMarkup:
+    buttons = []
+    if is_admin:
+        buttons.append(
+            InlineKeyboardButton(_("keyboard.user_add"), callback_data="user_add")
+        )
+        buttons.append(
+            InlineKeyboardButton(_("keyboard.user_remove"), callback_data="user_remove")
+        )
+    rows = [[b] for b in buttons] if buttons else []
+    rows.append([_main_menu_btn()])
+    return InlineKeyboardMarkup(rows)

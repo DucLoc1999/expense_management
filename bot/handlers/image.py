@@ -53,7 +53,7 @@ async def handle_image(update: Update, context: ContextTypes.DEFAULT_TYPE) -> in
     for i, po in enumerate(pending):
         await msg.reply_text(
             fmt_order(po, i, len(pending)),
-            parse_mode="Markdown",
+            parse_mode="HTML",
             reply_markup=order_review_keyboard(i, len(pending)),
         )
 
