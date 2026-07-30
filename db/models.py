@@ -170,6 +170,15 @@ async def remove_tele_user(tele_user_id: int) -> bool:
     return result != "DELETE 0"
 
 
+async def get_first_admin_id() -> int | None:
+    pool = await get_pool()
+    async with pool.acquire() as conn:
+        row = await conn.fetchrow(
+            "SELECT tele_user_id FROM telegram_users WHERE role = 'admin' ORDER BY id LIMIT 1"
+        )
+    return row["tele_user_id"] if row else None
+
+
 async def get_all_tele_users() -> list[dict]:
     pool = await get_pool()
     async with pool.acquire() as conn:
