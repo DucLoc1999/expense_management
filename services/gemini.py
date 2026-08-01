@@ -112,7 +112,7 @@ def _parse_order(item: dict, categories: list[str]) -> ExtractedOrder | None:
         money = int(item.get("money", 0))
         price = int(item.get("price", money if money > 0 else 0))
         shop = str(item.get("shop", "")).strip()
-        suggested = str(item.get("suggested_category", "Khác")).strip()
+        suggested = str(item.get("suggested_category", _("category.other"))).strip()
         payment_source = str(item.get("payment_source", "shopee")).strip()
 
         if not name or money <= 0:
@@ -122,7 +122,7 @@ def _parse_order(item: dict, categories: list[str]) -> ExtractedOrder | None:
         if price <= 0:
             price = money
         if suggested not in categories:
-            suggested = "Khác"
+            suggested = _("category.other")
         if payment_source not in ("shopee", "bank_transfer", "other"):
             payment_source = "shopee"
 

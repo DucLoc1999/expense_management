@@ -1,7 +1,6 @@
 from telegram import Update
 from telegram.ext import ContextTypes
 
-import config
 from bot.auth import is_admin, reload_users
 from bot.decorators import require_auth
 from bot.responses import (
@@ -10,7 +9,6 @@ from bot.responses import (
     addcat_usage,
     delcat_usage,
     history_list,
-    export_failed,
     language_set,
     language_invalid,
     admin_denied,
@@ -27,14 +25,11 @@ from db.models import (
     get_categories,
     add_category,
     delete_category,
-    get_recent_orders,
-    get_unsynced_orders,
-    mark_synced,
+    get_recent_bills,
     add_tele_user,
     remove_tele_user,
     get_all_tele_users,
 )
-from services.sheets import append_orders, OrderRow
 
 
 @require_auth
@@ -80,38 +75,10 @@ async def cmd_delcat(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
 
 @require_auth
 async def cmd_history(update: Update, _context: ContextTypes.DEFAULT_TYPE) -> int:
-    orders = await get_recent_orders(update.effective_user.id, limit=5)
+    bills = await get_recent_bills(update.effective_user.id, limit=5)
     await update.message.reply_text(
-        history_list(orders), parse_mode="HTML"
+        history_list(bills), parse_mode="HTML"
     )
-    return State.IDLE
-
-
-@require_auth
-async def cmd_export(update: Update, _context: ContextTypes.DEFAULT_TYPE) -> int:
-    tele_user_id = update.effective_user.id
-    sheet_url = f"https://docs.google.com/spreadsheets/d/{config.GOOGLE_SHEETS_ID}"
-    unsynced = await get_unsynced_orders(tele_user_id)
-    if not unsynced:
-        await update.effective_message.reply_text(sheet_url)
-        return State.IDLE
-    rows = [
-        OrderRow(
-            date=o.date,
-            name=o.name,
-            money=o.money,
-            shop=o.shop,
-            category=o.category_name,
-            notes=o.notes,
-        )
-        for o in unsynced
-    ]
-    ok, err = await append_orders(rows, tele_user_id)
-    if ok:
-        await mark_synced([o.id for o in unsynced])
-        await update.effective_message.reply_text(sheet_url)
-    else:
-        await update.effective_message.reply_text(export_failed(err or ""))
     return State.IDLE
 
 

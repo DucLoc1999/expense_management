@@ -41,6 +41,12 @@ def get_available_locales() -> list[str]:
     return list(_locales.keys())
 
 
+def localized_name(name: str, name_vi: str | None = None) -> str:
+    if _active_locale == "vi":
+        return name_vi or name
+    return name
+
+
 class _SafeDict(dict):
     def __missing__(self, key):
         return "{" + key + "}"

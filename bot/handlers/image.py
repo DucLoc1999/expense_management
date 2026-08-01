@@ -12,6 +12,7 @@ from bot.responses import (
 )
 from bot.keyboards import order_review_keyboard, confirm_all_keyboard
 from bot.states import State
+from bot.i18n import localized_name
 from db.models import get_categories
 from services.gemini import extract_orders
 
@@ -38,7 +39,7 @@ async def handle_image(update: Update, context: ContextTypes.DEFAULT_TYPE) -> in
     image_bytes = await file.download_as_bytearray()
 
     cats = await get_categories(update.effective_user.id)
-    cat_names = [c.name for c in cats]
+    cat_names = [localized_name(c.name, c.name_vi) for c in cats]
     orders, error = await extract_orders(bytes(image_bytes), mime, cat_names)
 
     if error or not orders:

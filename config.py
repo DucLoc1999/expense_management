@@ -14,8 +14,6 @@ def _require(key: str) -> str:
 
 TELEGRAM_BOT_TOKEN: str = _require("TELEGRAM_BOT_TOKEN")
 GEMINI_API_KEY: str = _require("GEMINI_API_KEY")
-GOOGLE_SHEETS_ID: str = _require("GOOGLE_SHEETS_ID")
-GOOGLE_SERVICE_ACCOUNT_FILE: str = _require("GOOGLE_SERVICE_ACCOUNT_FILE")
 BOT_LOCALE: str = os.getenv("BOT_LOCALE", "vi")
 DATABASE_URL: str = _require("DATABASE_URL")
 DB_SCHEMA: str = os.getenv("DB_SCHEMA", "public")

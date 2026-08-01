@@ -1,6 +1,6 @@
 import html
 
-from bot.i18n import _
+from bot.i18n import _, localized_name
 
 
 def _esc(text) -> str:
@@ -17,7 +17,7 @@ def categories_list(cats) -> str:
     lines = []
     for c in cats:
         marker = "•" if c.is_system else "◦"
-        lines.append(f"{marker} {_esc(c.name)}")
+        lines.append(f"{marker} {_esc(localized_name(c.name, c.name_vi))}")
     return _("categories.title") + "\n".join(lines)
 
 
@@ -40,29 +40,13 @@ def history_list(orders) -> str:
     for o in orders:
         icon = _("source." + o.payment_source)
         name = _esc(o.name)
-        cat = _esc(o.category_name)
+        cat = _esc(localized_name(o.category_name, o.category_name_vi))
         lines.append(f"{icon} <b>{name}</b>\n   {o.money:,}₫ · {cat} · {o.date}")
     return _("history.title") + "\n\n".join(lines)
 
 
 def history_none() -> str:
     return _("history.none")
-
-
-def export_all_synced() -> str:
-    return _("export.all_synced")
-
-
-def export_syncing(n: int) -> str:
-    return _("export.syncing", n=n)
-
-
-def export_synced(n: int) -> str:
-    return _("export.synced", n=n)
-
-
-def export_failed(err: str) -> str:
-    return _("export.failed", err=err)
 
 
 def processing() -> str:
@@ -93,20 +77,12 @@ def already_processed() -> str:
     return _("order.already_processed")
 
 
-def saved_line(saved_suffix: str) -> str:
-    return _("order.saved") + saved_suffix
+def saved_line() -> str:
+    return _("order.saved")
 
 
-def saved_count_line(n: int, saved_suffix: str) -> str:
-    return _("order.saved_count", n=n) + saved_suffix
-
-
-def synced_suffix() -> str:
-    return _("order.synced")
-
-
-def saved_local_suffix() -> str:
-    return _("order.saved_local")
+def saved_count_line(n: int) -> str:
+    return _("order.saved_count", n=n)
 
 
 def skipped() -> str:
@@ -195,11 +171,10 @@ def admin_users_list(users: list[dict]) -> str:
         return _("admin.users_empty")
     parts = [_("admin.users_title")]
     for i, u in enumerate(users, 1):
-        sheet = str(u["sheet_id"]) if u["sheet_id"] else "-"
         name = _esc(u["name"] or "-")
         role = _esc(u["role"] or "-")
         uid = u["tele_user_id"]
-        parts.append(f"{i}. <code>{uid}</code> — {name} ({role}) — sheet: {sheet}")
+        parts.append(f"{i}. <code>{uid}</code> — {name} ({role})")
     return "\n".join(parts)
 
 

@@ -10,8 +10,6 @@ from bot.responses import (
     already_processed,
     saved_line,
     saved_count_line,
-    synced_suffix,
-    saved_local_suffix,
     skipped,
     nothing_to_confirm,
     which_field,
@@ -34,14 +32,14 @@ from bot.keyboards import (
     category_menu_keyboard,
     category_remove_keyboard,
     language_keyboard,
-    history_export_keyboard,
     main_menu_only_keyboard,
     back_to_category_manager_keyboard,
     user_menu_keyboard,
 )
 
 from bot.states import State
-from db.models import get_categories, get_recent_orders, add_category, delete_category, get_all_tele_users
+from bot.i18n import localized_name
+from db.models import get_categories, get_recent_bills, add_category, delete_category, get_all_tele_users
 from services.order_service import confirm_order, confirm_all_orders
 
 
@@ -65,11 +63,10 @@ async def cb_confirm(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
         return State.IDLE
 
     tele_user_id = update.effective_user.id
-    ok, _ = await confirm_order(po, tele_user_id)
+    await confirm_order(po, tele_user_id)
 
-    suffix = synced_suffix() if ok else saved_local_suffix()
     await query.edit_message_text(
-        fmt_order(po, idx, len(pending)) + "\n\n" + saved_line(suffix),
+        fmt_order(po, idx, len(pending)) + "\n\n" + saved_line(),
         parse_mode="HTML",
     )
     return State.IDLE
@@ -107,10 +104,9 @@ async def cb_confirm_all(update: Update, context: ContextTypes.DEFAULT_TYPE) -> 
         return State.IDLE
 
     tele_user_id = update.effective_user.id
-    ok, n = await confirm_all_orders(pending, tele_user_id)
+    n = await confirm_all_orders(pending, tele_user_id)
 
-    suffix = synced_suffix() if ok else saved_local_suffix()
-    await query.edit_message_text(saved_count_line(n, suffix))
+    await query.edit_message_text(saved_count_line(n))
     return State.IDLE
 
 
@@ -169,7 +165,7 @@ async def cb_editfield(update: Update, context: ContextTypes.DEFAULT_TYPE) -> in
 
     if field_name == "category":
         cats = await get_categories(update.effective_user.id)
-        cat_names = [c.name for c in cats]
+        cat_names = [localized_name(c.name, c.name_vi) for c in cats]
         await query.edit_message_text(
             choose_category(),
             reply_markup=category_select_keyboard(idx, cat_names),
@@ -235,14 +231,14 @@ async def cb_welcome_history(
     query = update.callback_query
     await query.answer()
     tele_user_id = update.effective_user.id
-    orders = await get_recent_orders(tele_user_id, limit=5)
+    bills = await get_recent_bills(tele_user_id, limit=5)
     from bot.responses import history_list
 
-    text = history_list(orders)
+    text = history_list(bills)
     await query.edit_message_text(
         text,
         parse_mode="HTML",
-        reply_markup=history_export_keyboard() if orders else None,
+        reply_markup=main_menu_only_keyboard(),
     )
     return State.IDLE
 
@@ -357,15 +353,6 @@ async def cb_cat_list(update: Update, _context: ContextTypes.DEFAULT_TYPE) -> in
         reply_markup=back_to_category_manager_keyboard(),
     )
     return State.IDLE
-
-
-@require_auth
-async def cb_history_export(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
-    query = update.callback_query
-    await query.answer()
-    from bot.handlers.commands import cmd_export
-
-    return await cmd_export(update, context)
 
 
 @require_auth

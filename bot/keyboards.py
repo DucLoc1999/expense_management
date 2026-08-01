@@ -162,19 +162,6 @@ def back_to_category_manager_keyboard() -> InlineKeyboardMarkup:
     return InlineKeyboardMarkup([[_back_category_manager_btn(), _main_menu_btn()]])
 
 
-def history_export_keyboard() -> InlineKeyboardMarkup:
-    return InlineKeyboardMarkup(
-        [
-            [
-                InlineKeyboardButton(
-                    _("keyboard.export"), callback_data="history_export"
-                )
-            ],
-            [_main_menu_btn()],
-        ]
-    )
-
-
 def user_menu_keyboard(is_admin: bool = False) -> InlineKeyboardMarkup:
     buttons = []
     if is_admin:

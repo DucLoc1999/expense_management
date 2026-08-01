@@ -10,14 +10,14 @@ from db.models import (
 )
 
 
-def _row(cid, name, is_system, user_id=None, parent_id=None, slug=None):
+def _row(cid, name, is_system, user_id=None, parent_id=None, name_vi=None):
     return {
         "id": cid,
         "name": name,
         "is_system": is_system,
         "user_id": user_id,
         "parent_id": parent_id,
-        "slug": slug,
+        "name_vi": name_vi,
     }
 
 
@@ -74,13 +74,14 @@ def db():
 class TestGetCategories:
     async def test_returns_system_and_own_custom(self, db):
         db.fetch.return_value = [
-            _row(1, "Ăn uống", True, None, None, "an-uong"),
+            _row(1, "Food & Drink", True, None, None, "Ăn uống"),
             _row(2, "Gia vị", False, 111),
         ]
 
         cats = await get_categories(111)
 
-        assert [c.name for c in cats] == ["Ăn uống", "Gia vị"]
+        assert [c.name for c in cats] == ["Food & Drink", "Gia vị"]
+        assert cats[0].name_vi == "Ăn uống"
         assert cats[0].is_system is True
         assert cats[0].user_id is None
         assert cats[1].is_system is False
@@ -91,21 +92,32 @@ class TestGetCategories:
 @pytest.mark.asyncio
 class TestGetCategoryByName:
     async def test_prefers_user_custom_over_system(self, db):
-        db.fetchrow.return_value = _row(5, "Ăn uống", False, 111)
+        db.fetchrow.return_value = _row(5, "Gia vị", False, 111)
 
-        cat = await get_category_by_name("Ăn uống", 111)
+        cat = await get_category_by_name("Gia vị", 111)
 
         assert cat is not None
         assert cat.is_system is False
         assert cat.user_id == 111
         args = db.fetchrow.await_args.args
-        assert args[1] == "Ăn uống"
+        assert args[1] == "Gia vị"
         assert args[2] == 111
 
-    async def test_returns_system_when_no_custom(self, db):
-        db.fetchrow.return_value = _row(1, "Ăn uống", True, None, None, "an-uong")
+    async def test_matches_by_vietnamese_name(self, db):
+        db.fetchrow.return_value = _row(1, "Food & Drink", True, None, None, "Ăn uống")
 
         cat = await get_category_by_name("Ăn uống", 222)
+
+        assert cat is not None
+        assert cat.name == "Food & Drink"
+        assert cat.name_vi == "Ăn uống"
+        assert cat.is_system is True
+        assert cat.user_id is None
+
+    async def test_returns_system_when_no_custom(self, db):
+        db.fetchrow.return_value = _row(1, "Food & Drink", True, None, None, "Ăn uống")
+
+        cat = await get_category_by_name("Food & Drink", 222)
 
         assert cat is not None
         assert cat.is_system is True
@@ -138,7 +150,8 @@ class TestAddCategory:
         args = db.execute.await_args.args
         assert "INSERT INTO categories" in args[0]
         assert args[1] == "Gia vị"
-        assert args[2] == 111
+        assert args[2] == "Gia vị"
+        assert args[3] == 111
 
 
 @pytest.mark.asyncio
@@ -182,7 +195,8 @@ class TestReplaceCustomCategories:
         assert delete_args[1] == 111
         for call in calls[1:]:
             assert "INSERT INTO categories" in call.args[0]
-            assert call.args[2] == 111
+            assert call.args[2] == call.args[1]
+            assert call.args[3] == 111
 
     async def test_skips_names_used_by_system_categories(self, db):
         db.fetchval.side_effect = [1, None]
