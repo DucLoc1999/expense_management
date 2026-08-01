@@ -20,9 +20,15 @@ from bot.responses import (
     admin_users_list,
 )
 from bot.keyboards import order_review_keyboard, category_menu_keyboard, user_menu_keyboard
-from db.models import add_tele_user, remove_tele_user, get_all_tele_users
 from bot.states import State
-from db.models import add_category, get_categories
+from db.models import (
+    add_tele_user,
+    remove_tele_user,
+    get_all_tele_users,
+    add_category,
+    get_categories,
+    replace_custom_categories,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -90,17 +96,9 @@ async def _handle_cat_edit_input(update: Update, context: ContextTypes.DEFAULT_T
     if not names:
         await update.message.reply_text("Category list cannot be empty.")
         return State.IDLE
-    from db.database import get_pool
-    pool = await get_pool()
-    async with pool.acquire() as conn:
-        await conn.execute("DELETE FROM categories WHERE is_default = FALSE")
-        for name in names:
-            await conn.execute(
-                "INSERT INTO categories (name, is_default) VALUES ($1, FALSE) ON CONFLICT (name) DO NOTHING",
-                name,
-            )
+    await replace_custom_categories(names, update.effective_user.id)
     context.user_data.pop("state", None)
-    cats = await get_categories()
+    cats = await get_categories(update.effective_user.id)
     await update.message.reply_text(
         categories_list(cats),
         parse_mode="HTML",
@@ -114,9 +112,9 @@ async def _handle_cat_add_input(update: Update, context: ContextTypes.DEFAULT_TY
     if not name:
         await update.message.reply_text("Category name cannot be empty.")
         return State.ADDING_CATEGORY
-    _, msg = await add_category(name)
+    _, msg = await add_category(name, update.effective_user.id)
     context.user_data.pop("state", None)
-    cats = await get_categories()
+    cats = await get_categories(update.effective_user.id)
     await update.message.reply_text(
         categories_list(cats),
         parse_mode="HTML",

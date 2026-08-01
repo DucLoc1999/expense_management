@@ -29,7 +29,7 @@ def mock_db():
     with patch("services.order_service.get_category_by_name", new_callable=AsyncMock) as get_cat, \
          patch("services.order_service.save_order", new_callable=AsyncMock) as save, \
          patch("services.order_service.mark_synced", new_callable=AsyncMock) as mark:
-        get_cat.return_value = Category(id=1, name="Ăn uống", is_default=False)
+        get_cat.return_value = Category(id=1, name="Ăn uống", is_system=False)
         save.return_value = 101
         yield {"get_category_by_name": get_cat, "save_order": save, "mark_synced": mark}
 
@@ -62,7 +62,7 @@ class TestConfirmOrder:
     async def test_falls_back_to_khac_category(self, mock_db, mock_sheets):
         mock_db["get_category_by_name"].side_effect = [
             None,
-            Category(id=99, name="Khác", is_default=True),
+            Category(id=99, name="Khác", is_system=True),
         ]
         po = _make_pending(category_name="NonExistent")
 
@@ -71,7 +71,9 @@ class TestConfirmOrder:
         assert ok is True
         calls = mock_db["get_category_by_name"].await_args_list
         assert calls[0].args[0] == "NonExistent"
+        assert calls[0].args[1] == 111
         assert calls[1].args[0] == "Khác"
+        assert calls[1].args[1] == 111
 
     async def test_sheets_failure_skips_mark_synced(self, mock_db, mock_sheets):
         mock_sheets["append_one"].return_value = (False, "error")

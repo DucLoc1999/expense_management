@@ -168,7 +168,7 @@ async def cb_editfield(update: Update, context: ContextTypes.DEFAULT_TYPE) -> in
         return State.IDLE
 
     if field_name == "category":
-        cats = await get_categories()
+        cats = await get_categories(update.effective_user.id)
         cat_names = [c.name for c in cats]
         await query.edit_message_text(
             choose_category(),
@@ -219,7 +219,7 @@ async def cb_welcome_categories(
     query = update.callback_query
     await query.answer()
     tele_user_id = update.effective_user.id
-    cats = await get_categories()
+    cats = await get_categories(tele_user_id)
     await query.edit_message_text(
         categories_list(cats),
         parse_mode="HTML",
@@ -271,11 +271,11 @@ async def cb_welcome_users(
     query = update.callback_query
     await query.answer()
     tele_user_id = update.effective_user.id
-    users = await get_all_tele_users()
+    cats = await get_categories(tele_user_id)
     await query.edit_message_text(
-        admin_users_list(users),
+        categories_list(cats),
         parse_mode="HTML",
-        reply_markup=user_menu_keyboard(is_admin(tele_user_id)),
+        reply_markup=category_menu_keyboard(is_admin(tele_user_id)),
     )
     return State.IDLE
 
@@ -348,7 +348,7 @@ async def cb_cat_edit(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int
 async def cb_cat_list(update: Update, _context: ContextTypes.DEFAULT_TYPE) -> int:
     query = update.callback_query
     await query.answer()
-    cats = await get_categories()
+    cats = await get_categories(update.effective_user.id)
     from bot.responses import categories_list
 
     await query.edit_message_text(
@@ -392,8 +392,8 @@ async def cb_cat_remove(update: Update, _context: ContextTypes.DEFAULT_TYPE) -> 
     if not is_admin(tele_user_id):
         await query.edit_message_text("Access denied.")
         return State.IDLE
-    cats = await get_categories()
-    removable = [c for c in cats if not c.is_default]
+    cats = await get_categories(tele_user_id)
+    removable = [c for c in cats if not c.is_system]
     if not removable:
         from bot.responses import category_remove_empty
 
@@ -415,8 +415,8 @@ async def cb_cat_rm(update: Update, _context: ContextTypes.DEFAULT_TYPE) -> int:
         await query.edit_message_text("Access denied.")
         return State.IDLE
     cat_name = query.data.split(":", 1)[1]
-    ok, _ = await delete_category(cat_name)
-    cats = await get_categories()
+    ok, _ = await delete_category(cat_name, tele_user_id)
+    cats = await get_categories(tele_user_id)
     if ok:
         from bot.responses import category_remove_success
 
@@ -440,7 +440,7 @@ async def cb_back_category_manager(
     query = update.callback_query
     await query.answer()
     tele_user_id = update.effective_user.id
-    cats = await get_categories()
+    cats = await get_categories(tele_user_id)
     await query.edit_message_text(
         categories_list(cats),
         parse_mode="HTML",

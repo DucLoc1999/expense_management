@@ -13,9 +13,9 @@ async def confirm_order(po: PendingOrder, tele_user_id: int) -> tuple[bool, int]
     po.status = "confirmed"
     date_str = datetime.now(timezone.utc).strftime("%Y-%m-%d")
 
-    cat = await get_category_by_name(po.category_name)
+    cat = await get_category_by_name(po.category_name, tele_user_id)
     if not cat:
-        cat = await get_category_by_name("Khác")
+        cat = await get_category_by_name("Khác", tele_user_id)
 
     order_id = await save_order(
         name=po.extracted.name,
@@ -59,9 +59,9 @@ async def confirm_all_orders(pending: list[PendingOrder], tele_user_id: int) -> 
 
     for po in to_confirm:
         po.status = "confirmed"
-        cat = await get_category_by_name(po.category_name)
+        cat = await get_category_by_name(po.category_name, tele_user_id)
         if not cat:
-            cat = await get_category_by_name("Khác")
+            cat = await get_category_by_name("Khác", tele_user_id)
         oid = await save_order(
             name=po.extracted.name,
             money=po.extracted.money,

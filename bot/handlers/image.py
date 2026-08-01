@@ -37,7 +37,7 @@ async def handle_image(update: Update, context: ContextTypes.DEFAULT_TYPE) -> in
 
     image_bytes = await file.download_as_bytearray()
 
-    cats = await get_categories()
+    cats = await get_categories(update.effective_user.id)
     cat_names = [c.name for c in cats]
     orders, error = await extract_orders(bytes(image_bytes), mime, cat_names)
 

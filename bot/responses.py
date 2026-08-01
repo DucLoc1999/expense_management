@@ -16,7 +16,7 @@ def categories_list(cats) -> str:
         return _("categories.none")
     lines = []
     for c in cats:
-        marker = "•" if c.is_default else "◦"
+        marker = "•" if c.is_system else "◦"
         lines.append(f"{marker} {_esc(c.name)}")
     return _("categories.title") + "\n".join(lines)
 

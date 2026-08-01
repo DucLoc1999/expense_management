@@ -47,7 +47,7 @@ async def cmd_start(update: Update, _context: ContextTypes.DEFAULT_TYPE) -> int:
 
 @require_auth
 async def cmd_categories(update: Update, _context: ContextTypes.DEFAULT_TYPE) -> int:
-    cats = await get_categories()
+    cats = await get_categories(update.effective_user.id)
     await update.message.reply_text(
         categories_list(cats), parse_mode="HTML"
     )
@@ -61,7 +61,7 @@ async def cmd_addcat(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
         await update.message.reply_text(addcat_usage())
         return State.IDLE
     name = " ".join(args).strip()
-    _, msg = await add_category(name)
+    _, msg = await add_category(name, update.effective_user.id)
     await update.message.reply_text(msg)
     return State.IDLE
 
@@ -73,7 +73,7 @@ async def cmd_delcat(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
         await update.message.reply_text(delcat_usage())
         return State.IDLE
     name = " ".join(args).strip()
-    _, msg = await delete_category(name)
+    _, msg = await delete_category(name, update.effective_user.id)
     await update.message.reply_text(msg)
     return State.IDLE
 

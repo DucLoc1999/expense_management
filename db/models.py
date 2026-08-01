@@ -8,7 +8,10 @@ from db.database import get_pool
 class Category:
     id: int
     name: str
-    is_default: bool
+    is_system: bool
+    user_id: int | None = None
+    parent_id: int | None = None
+    slug: str | None = None
 
 
 @dataclass
@@ -25,48 +28,96 @@ class Order:
     category_name: str = ""
 
 
-async def get_categories() -> list[Category]:
+def _row_to_category(r) -> Category:
+    return Category(
+        id=r["id"],
+        name=r["name"],
+        is_system=bool(r["is_system"]),
+        user_id=r["user_id"],
+        parent_id=r["parent_id"],
+        slug=r["slug"],
+    )
+
+
+async def get_categories(tele_user_id: int) -> list[Category]:
     pool = await get_pool()
     async with pool.acquire() as conn:
         rows = await conn.fetch(
-            "SELECT id, name, is_default FROM categories ORDER BY is_default DESC, id"
+            """SELECT id, name, is_system, user_id, parent_id, slug FROM categories
+               WHERE user_id IS NULL OR user_id = $1
+               ORDER BY is_system DESC, id""",
+            tele_user_id,
         )
-    return [
-        Category(id=r["id"], name=r["name"], is_default=bool(r["is_default"]))
-        for r in rows
-    ]
+    return [_row_to_category(r) for r in rows]
 
 
-async def add_category(name: str) -> tuple[bool, str]:
-    """Returns (success, message)."""
+async def add_category(name: str, tele_user_id: int) -> tuple[bool, str]:
+    """Returns (success, message). Rejects names used by system or the user's own set."""
     name = name.strip()
     if not name:
         return False, "Category name cannot be empty."
     pool = await get_pool()
     async with pool.acquire() as conn:
-        try:
-            await conn.execute(
-                "INSERT INTO categories (name, is_default) VALUES ($1, FALSE)", name
-            )
-            return True, f"Category '{name}' added."
-        except Exception:
+        existing = await conn.fetchval(
+            """SELECT 1 FROM categories
+               WHERE name = $1 AND (user_id IS NULL OR user_id = $2)
+               LIMIT 1""",
+            name,
+            tele_user_id,
+        )
+        if existing:
             return False, f"Category '{name}' already exists."
+        await conn.execute(
+            "INSERT INTO categories (name, is_system, user_id) VALUES ($1, FALSE, $2)",
+            name,
+            tele_user_id,
+        )
+    return True, f"Category '{name}' added."
 
 
-async def delete_category(name: str) -> tuple[bool, str]:
-    """Returns (success, message). Cannot delete default categories."""
+async def delete_category(name: str, tele_user_id: int) -> tuple[bool, str]:
+    """Returns (success, message). Cannot delete system or other users' categories."""
     name = name.strip()
     pool = await get_pool()
     async with pool.acquire() as conn:
         row = await conn.fetchrow(
-            "SELECT id, is_default FROM categories WHERE name = $1", name
+            """SELECT id, is_system, user_id FROM categories
+               WHERE name = $1 AND (user_id = $2 OR user_id IS NULL)
+               ORDER BY COALESCE(user_id = $2, FALSE) DESC
+               LIMIT 1""",
+            name,
+            tele_user_id,
         )
         if not row:
             return False, f"Category '{name}' not found."
-        if row["is_default"]:
-            return False, f"Cannot delete default category '{name}'."
+        if row["is_system"]:
+            return False, f"Cannot delete system category '{name}'."
+        if row["user_id"] != tele_user_id:
+            return False, f"Cannot delete another user's category '{name}'."
         await conn.execute("DELETE FROM categories WHERE id = $1", row["id"])
     return True, f"Category '{name}' deleted."
+
+
+async def replace_custom_categories(names: list[str], tele_user_id: int) -> None:
+    """Replace only the user's own custom categories. Skips names used by system categories."""
+    pool = await get_pool()
+    async with pool.acquire() as conn:
+        async with conn.transaction():
+            await conn.execute(
+                "DELETE FROM categories WHERE user_id = $1 AND is_system = FALSE",
+                tele_user_id,
+            )
+            for name in names:
+                exists = await conn.fetchval(
+                    "SELECT 1 FROM categories WHERE user_id IS NULL AND name = $1",
+                    name,
+                )
+                if not exists:
+                    await conn.execute(
+                        "INSERT INTO categories (name, is_system, user_id) VALUES ($1, FALSE, $2)",
+                        name,
+                        tele_user_id,
+                    )
 
 
 async def save_order(
@@ -199,15 +250,20 @@ async def set_sheet_id(tele_user_id: int, sheet_id: int) -> None:
         )
 
 
-async def get_category_by_name(name: str) -> Category | None:
+async def get_category_by_name(name: str, tele_user_id: int) -> Category | None:
     pool = await get_pool()
     async with pool.acquire() as conn:
         row = await conn.fetchrow(
-            "SELECT id, name, is_default FROM categories WHERE name = $1", name
+            """SELECT id, name, is_system, user_id, parent_id, slug FROM categories
+               WHERE name = $1 AND (user_id IS NULL OR user_id = $2)
+               ORDER BY COALESCE(user_id = $2, FALSE) DESC, id
+               LIMIT 1""",
+            name,
+            tele_user_id,
         )
     if not row:
         return None
-    return Category(id=row["id"], name=row["name"], is_default=bool(row["is_default"]))
+    return _row_to_category(row)
 
 
 def _row_to_order(r) -> Order:

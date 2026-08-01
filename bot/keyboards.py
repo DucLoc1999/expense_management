@@ -130,7 +130,7 @@ def category_menu_keyboard(is_admin: bool) -> InlineKeyboardMarkup:
 def category_remove_keyboard(categories) -> InlineKeyboardMarkup:
     rows = []
     for cat in categories:
-        if not cat.is_default:
+        if not cat.is_system:
             rows.append(
                 [
                     InlineKeyboardButton(
