@@ -1,4 +1,5 @@
 import logging
+from urllib.parse import urlparse
 
 from telegram.ext import ApplicationBuilder, ContextTypes
 
@@ -51,7 +52,24 @@ def main() -> None:
         app.add_handler(handler)
     app.add_error_handler(error_handler)
 
-    logger.info("Bot starting (polling)...")
+    if config.ENV_MODE == "webhook":
+        if not config.WEBHOOK_URL:
+            raise RuntimeError("ENV_MODE=webhook requires WEBHOOK_URL to be set")
+        path = urlparse(config.WEBHOOK_URL).path or "/webhook"
+        logger.info(
+            "Bot starting (webhook mode): %s on port %d",
+            config.WEBHOOK_URL,
+            config.PORT,
+        )
+        app.run_webhook(
+            listen="0.0.0.0",
+            port=config.PORT,
+            url_path=path,
+            webhook_url=config.WEBHOOK_URL,
+        )
+        return
+
+    logger.info("Bot starting (polling mode)...")
     app.run_polling(drop_pending_updates=True)
 
 
