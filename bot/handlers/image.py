@@ -2,13 +2,14 @@ from telegram import Update
 from telegram.ext import ContextTypes
 
 from bot.decorators import require_auth
-from bot.models import PendingOrder, _PENDING
+from bot.models import PendingOrder, _PENDING, _EXPERT_BUSY, _EXPERT_MODE
 from bot.responses import (
     processing,
     not_image,
     no_orders,
     found_orders,
     fmt_order,
+    expert_no_images,
 )
 from bot.keyboards import order_review_keyboard, confirm_all_keyboard
 from bot.states import State
@@ -19,6 +20,11 @@ from services.gemini import extract_orders
 
 @require_auth
 async def handle_image(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
+    if context.user_data.get(_EXPERT_BUSY):
+        return State.EXPERT_ADVICE
+    if context.user_data.get(_EXPERT_MODE):
+        await update.message.reply_text(expert_no_images())
+        return State.EXPERT_ADVICE
     msg = update.message
     processing_msg = await msg.reply_text(processing())
 

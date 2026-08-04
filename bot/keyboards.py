@@ -106,6 +106,96 @@ def welcome_keyboard() -> InlineKeyboardMarkup:
                     _("keyboard.language"), callback_data="welcome_language"
                 ),
             ],
+            [
+                InlineKeyboardButton(
+                    _("keyboard.expert"), callback_data="expert_open"
+                ),
+            ],
+        ]
+    )
+
+
+EXPERT_PRESETS = [
+    ("last_7", "expert.preset.last_7"),
+    ("last_30", "expert.preset.last_30"),
+    ("last_90", "expert.preset.last_90"),
+    ("last_week", "expert.preset.last_week"),
+    ("last_month", "expert.preset.last_month"),
+    ("last_3_months", "expert.preset.last_3_months"),
+    ("last_6_months", "expert.preset.last_6_months"),
+]
+
+
+def expert_screen_keyboard() -> InlineKeyboardMarkup:
+    return InlineKeyboardMarkup(
+        [
+            [
+                InlineKeyboardButton(
+                    _("keyboard.expert_filter"), callback_data="expert_filter"
+                ),
+                InlineKeyboardButton(
+                    _("keyboard.expert_advice"), callback_data="expert_advice"
+                ),
+            ],
+            [_main_menu_btn()],
+        ]
+    )
+
+
+def expert_filter_keyboard() -> InlineKeyboardMarkup:
+    rows = []
+    for i in range(0, len(EXPERT_PRESETS), 2):
+        row = []
+        for key, label in EXPERT_PRESETS[i : i + 2]:
+            row.append(
+                InlineKeyboardButton(_(label), callback_data=f"expert_preset:{key}")
+            )
+        rows.append(row)
+    rows.append(
+        [
+            InlineKeyboardButton(
+                _("keyboard.expert_custom"), callback_data="expert_custom"
+            )
+        ]
+    )
+    rows.append(
+        [
+            InlineKeyboardButton(
+                _("keyboard.expert_back"), callback_data="expert_back"
+            ),
+            _main_menu_btn(),
+        ]
+    )
+    return InlineKeyboardMarkup(rows)
+
+
+EXPERT_STARTER_KEYS = ["0", "1", "2", "3"]
+
+
+def expert_starter_keyboard() -> InlineKeyboardMarkup:
+    rows = []
+    for i in range(0, len(EXPERT_STARTER_KEYS), 2):
+        row = []
+        for key in EXPERT_STARTER_KEYS[i : i + 2]:
+            row.append(
+                InlineKeyboardButton(
+                    _("expert.starter." + key),
+                    callback_data=f"expert_starter:{key}",
+                )
+            )
+        rows.append(row)
+    rows.append([InlineKeyboardButton(_("keyboard.expert_end"), callback_data="expert_end")])
+    return InlineKeyboardMarkup(rows)
+
+
+def expert_advisor_keyboard() -> InlineKeyboardMarkup:
+    return InlineKeyboardMarkup(
+        [
+            [
+                InlineKeyboardButton(
+                    _("keyboard.expert_end"), callback_data="expert_end"
+                ),
+            ]
         ]
     )
 

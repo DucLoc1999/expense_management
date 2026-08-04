@@ -6,7 +6,7 @@ from telegram.ext import ContextTypes
 
 from bot.auth import is_admin, reload_users
 from bot.decorators import require_auth
-from bot.models import _PENDING, _EDITING_IDX, _EDITING_FIELD
+from bot.models import _PENDING, _EDITING_IDX, _EDITING_FIELD, _EXPERT_BUSY, _EXPERT_FILTER
 from bot.responses import (
     edit_nothing,
     edit_invalid,
@@ -21,6 +21,7 @@ from bot.responses import (
 )
 from bot.keyboards import order_review_keyboard, category_menu_keyboard, user_menu_keyboard
 from bot.states import State
+from bot.expert import handle_expert_exit, ask_expert_question, render_expert_summary
 from db.models import (
     add_tele_user,
     remove_tele_user,
@@ -29,6 +30,8 @@ from db.models import (
     get_categories,
     replace_custom_categories,
 )
+from bot.i18n import _
+from services.expert import parse_custom_range, RangeError
 
 logger = logging.getLogger(__name__)
 
@@ -41,6 +44,13 @@ def _clean_category_name(text: str) -> str:
 @require_auth
 async def handle_field_input(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
     state = context.user_data.get("state")
+    if state == State.EXPERT_FILTER_FROM_TO:
+        return await _handle_expert_range_input(update, context)
+    if state == State.EXPERT_ADVICE:
+        return await _handle_expert_question_input(update, context)
+    if context.user_data.get(_EXPERT_BUSY):
+        return State.IDLE
+    await handle_expert_exit(update, context)
     if state == State.EDITING_CATEGORIES:
         return await _handle_cat_edit_input(update, context)
     if state == State.ADDING_CATEGORY:
@@ -176,3 +186,29 @@ async def _handle_user_remove_input(update: Update, context: ContextTypes.DEFAUL
         reply_markup=user_menu_keyboard(is_admin(update.effective_user.id)),
     )
     return State.IDLE
+
+
+async def _handle_expert_range_input(
+    update: Update, context: ContextTypes.DEFAULT_TYPE
+) -> int:
+    text = update.message.text.strip()
+    try:
+        start, end = parse_custom_range(text)
+    except RangeError as exc:
+        await update.message.reply_text(_(f"expert.filter.error.{exc.message_key}"))
+        return State.EXPERT_FILTER_FROM_TO
+    context.user_data[_EXPERT_FILTER] = (start, end)
+    context.user_data["state"] = State.IDLE
+    await render_expert_summary(update, context)
+    return State.IDLE
+
+
+async def _handle_expert_question_input(
+    update: Update, context: ContextTypes.DEFAULT_TYPE
+) -> int:
+    if context.user_data.get(_EXPERT_BUSY):
+        return State.EXPERT_ADVICE
+    question = update.message.text.strip()
+    if not question:
+        return State.EXPERT_ADVICE
+    return await ask_expert_question(update, context, question)

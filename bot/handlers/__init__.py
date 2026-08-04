@@ -43,6 +43,14 @@ from bot.handlers.callbacks import (
     cb_language_set,
     cb_main_menu,
     cb_back_category_manager,
+    cb_expert_open,
+    cb_expert_filter,
+    cb_expert_preset,
+    cb_expert_custom,
+    cb_expert_back,
+    cb_expert_advice,
+    cb_expert_starter,
+    cb_expert_end,
 )
 from bot.handlers.text import handle_field_input
 
@@ -95,5 +103,13 @@ def build_handlers():
         CallbackQueryHandler(
             cb_back_category_manager, pattern=r"^back_category_manager$"
         ),
+        CallbackQueryHandler(cb_expert_open, pattern=r"^expert_open$"),
+        CallbackQueryHandler(cb_expert_filter, pattern=r"^expert_filter$"),
+        CallbackQueryHandler(cb_expert_preset, pattern=r"^expert_preset:.+$"),
+        CallbackQueryHandler(cb_expert_custom, pattern=r"^expert_custom$"),
+        CallbackQueryHandler(cb_expert_back, pattern=r"^expert_back$"),
+        CallbackQueryHandler(cb_expert_advice, pattern=r"^expert_advice$"),
+        CallbackQueryHandler(cb_expert_starter, pattern=r"^expert_starter:\d+$"),
+        CallbackQueryHandler(cb_expert_end, pattern=r"^expert_end$"),
         MessageHandler(filters.TEXT & ~filters.COMMAND, handle_field_input),
     ]

@@ -10,3 +10,5 @@ class State(IntEnum):
     EDITING_CATEGORIES = auto()
     ADDING_USER = auto()
     REMOVING_USER = auto()
+    EXPERT_FILTER_FROM_TO = auto()
+    EXPERT_ADVICE = auto()

@@ -38,12 +38,14 @@ from bot.keyboards import (
 )
 
 from bot.states import State
-from bot.i18n import localized_name
+from bot.i18n import _, localized_name
+from bot.expert import expert_guard, ask_expert_question, render_expert_summary
 from db.models import get_categories, get_recent_bills, add_category, delete_category, get_all_tele_users
 from services.order_service import confirm_order, confirm_all_orders
 
 
 @require_auth
+@expert_guard
 async def cb_confirm(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
     query = update.callback_query
     await query.answer()
@@ -73,6 +75,7 @@ async def cb_confirm(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
 
 
 @require_auth
+@expert_guard
 async def cb_skip(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
     query = update.callback_query
     await query.answer()
@@ -93,6 +96,7 @@ async def cb_skip(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
 
 
 @require_auth
+@expert_guard
 async def cb_confirm_all(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
     query = update.callback_query
     await query.answer()
@@ -111,6 +115,7 @@ async def cb_confirm_all(update: Update, context: ContextTypes.DEFAULT_TYPE) -> 
 
 
 @require_auth
+@expert_guard
 async def cb_edit(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
     query = update.callback_query
     await query.answer()
@@ -132,6 +137,7 @@ async def cb_edit(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
 
 
 @require_auth
+@expert_guard
 async def cb_back(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
     query = update.callback_query
     await query.answer()
@@ -152,6 +158,7 @@ async def cb_back(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
 
 
 @require_auth
+@expert_guard
 async def cb_editfield(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
     query = update.callback_query
     await query.answer()
@@ -187,6 +194,7 @@ async def cb_editfield(update: Update, context: ContextTypes.DEFAULT_TYPE) -> in
 
 
 @require_auth
+@expert_guard
 async def cb_setcat(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
     query = update.callback_query
     await query.answer()
@@ -209,6 +217,7 @@ async def cb_setcat(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
 
 
 @require_auth
+@expert_guard
 async def cb_welcome_categories(
     update: Update, _context: ContextTypes.DEFAULT_TYPE
 ) -> int:
@@ -225,6 +234,7 @@ async def cb_welcome_categories(
 
 
 @require_auth
+@expert_guard
 async def cb_welcome_history(
     update: Update, _context: ContextTypes.DEFAULT_TYPE
 ) -> int:
@@ -244,6 +254,7 @@ async def cb_welcome_history(
 
 
 @require_auth
+@expert_guard
 async def cb_welcome_language(
     update: Update, _context: ContextTypes.DEFAULT_TYPE
 ) -> int:
@@ -261,6 +272,7 @@ async def cb_welcome_language(
 
 
 @require_auth
+@expert_guard
 async def cb_welcome_users(
     update: Update, _context: ContextTypes.DEFAULT_TYPE
 ) -> int:
@@ -277,6 +289,7 @@ async def cb_welcome_users(
 
 
 @require_auth
+@expert_guard
 async def cb_user_add(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
     query = update.callback_query
     await query.answer()
@@ -293,6 +306,7 @@ async def cb_user_add(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int
 
 
 @require_auth
+@expert_guard
 async def cb_user_remove(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
     query = update.callback_query
     await query.answer()
@@ -309,6 +323,7 @@ async def cb_user_remove(update: Update, context: ContextTypes.DEFAULT_TYPE) -> 
 
 
 @require_auth
+@expert_guard
 async def cb_cat_add(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
     query = update.callback_query
     await query.answer()
@@ -325,6 +340,7 @@ async def cb_cat_add(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
 
 
 @require_auth
+@expert_guard
 async def cb_cat_edit(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
     query = update.callback_query
     await query.answer()
@@ -341,6 +357,7 @@ async def cb_cat_edit(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int
 
 
 @require_auth
+@expert_guard
 async def cb_cat_list(update: Update, _context: ContextTypes.DEFAULT_TYPE) -> int:
     query = update.callback_query
     await query.answer()
@@ -356,6 +373,7 @@ async def cb_cat_list(update: Update, _context: ContextTypes.DEFAULT_TYPE) -> in
 
 
 @require_auth
+@expert_guard
 async def cb_language_set(update: Update, _context: ContextTypes.DEFAULT_TYPE) -> int:
     query = update.callback_query
     await query.answer()
@@ -372,6 +390,7 @@ async def cb_language_set(update: Update, _context: ContextTypes.DEFAULT_TYPE) -
 
 
 @require_auth
+@expert_guard
 async def cb_cat_remove(update: Update, _context: ContextTypes.DEFAULT_TYPE) -> int:
     query = update.callback_query
     await query.answer()
@@ -394,6 +413,7 @@ async def cb_cat_remove(update: Update, _context: ContextTypes.DEFAULT_TYPE) -> 
 
 
 @require_auth
+@expert_guard
 async def cb_cat_rm(update: Update, _context: ContextTypes.DEFAULT_TYPE) -> int:
     query = update.callback_query
     await query.answer()
@@ -421,6 +441,7 @@ async def cb_cat_rm(update: Update, _context: ContextTypes.DEFAULT_TYPE) -> int:
 
 
 @require_auth
+@expert_guard
 async def cb_back_category_manager(
     update: Update, _context: ContextTypes.DEFAULT_TYPE
 ) -> int:
@@ -437,10 +458,162 @@ async def cb_back_category_manager(
 
 
 @require_auth
+@expert_guard
 async def cb_main_menu(update: Update, _context: ContextTypes.DEFAULT_TYPE) -> int:
     query = update.callback_query
     await query.answer()
     await query.edit_message_text(
         welcome(), parse_mode="HTML", reply_markup=welcome_keyboard()
     )
+    return State.IDLE
+
+
+from bot.models import (
+    _EXPERT_FILTER,
+    _EXPERT_SESSION,
+    _EXPERT_MODE,
+    _EXPERT_BUSY,
+    _EXPERT_CONTEXT,
+)
+from bot.responses import (
+    expert_filter_title,
+    expert_range_help,
+    expert_advisor_intro,
+    expert_no_data_advice,
+    expert_goodbye,
+)
+from bot.keyboards import (
+    expert_screen_keyboard,
+    expert_filter_keyboard,
+    expert_starter_keyboard,
+)
+from services.expert import (
+    build_summary,
+    build_advisor_context,
+    resolve_preset,
+    DEFAULT_PRESET,
+)
+from db.models import create_expert_session, close_expert_session
+
+
+@require_auth
+@expert_guard
+async def cb_expert_open(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
+    query = update.callback_query
+    await query.answer()
+    context.user_data[_EXPERT_FILTER] = resolve_preset(DEFAULT_PRESET)
+    await render_expert_summary(update, context, query.message)
+    return State.IDLE
+
+
+@require_auth
+@expert_guard
+async def cb_expert_filter(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
+    query = update.callback_query
+    await query.answer()
+    await query.edit_message_text(
+        expert_filter_title(), reply_markup=expert_filter_keyboard()
+    )
+    return State.IDLE
+
+
+@require_auth
+@expert_guard
+async def cb_expert_preset(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
+    query = update.callback_query
+    await query.answer()
+    key = query.data.split(":", 1)[1]
+    context.user_data[_EXPERT_FILTER] = resolve_preset(key)
+    await render_expert_summary(update, context, query.message)
+    return State.IDLE
+
+
+@require_auth
+@expert_guard
+async def cb_expert_custom(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
+    query = update.callback_query
+    await query.answer()
+    context.user_data["state"] = State.EXPERT_FILTER_FROM_TO
+    await query.edit_message_text(
+        expert_range_help(), reply_markup=expert_filter_keyboard()
+    )
+    return State.EXPERT_FILTER_FROM_TO
+
+
+@require_auth
+@expert_guard
+async def cb_expert_back(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
+    query = update.callback_query
+    await query.answer()
+    await render_expert_summary(update, context, query.message)
+    return State.IDLE
+
+
+@require_auth
+@expert_guard
+async def cb_expert_advice(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
+    query = update.callback_query
+    await query.answer()
+    tele_user_id = update.effective_user.id
+    start, end = context.user_data.get(_EXPERT_FILTER) or resolve_preset(DEFAULT_PRESET)
+
+    summary = await build_summary(tele_user_id, start, end)
+    if summary is None:
+        await query.edit_message_text(
+            expert_no_data_advice(), reply_markup=expert_screen_keyboard()
+        )
+        return State.IDLE
+
+    import uuid
+
+    session_id = await create_expert_session(
+        tele_user_id, str(uuid.uuid4()), start, end
+    )
+    advisor_context = await build_advisor_context(tele_user_id, start, end)
+    context.user_data[_EXPERT_SESSION] = session_id
+    context.user_data[_EXPERT_MODE] = True
+    context.user_data[_EXPERT_CONTEXT] = advisor_context
+    context.user_data[_EXPERT_FILTER] = (start, end)
+    context.user_data["state"] = State.EXPERT_ADVICE
+
+    await query.edit_message_text(
+        expert_advisor_intro(start, end),
+        reply_markup=expert_starter_keyboard(),
+    )
+    return State.EXPERT_ADVICE
+
+
+@require_auth
+async def cb_expert_starter(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
+    query = update.callback_query
+    await query.answer()
+    if context.user_data.get(_EXPERT_BUSY):
+        return State.EXPERT_ADVICE
+    if not context.user_data.get(_EXPERT_MODE):
+        return State.IDLE
+    key = query.data.split(":", 1)[1]
+    question = _("expert.starter." + key)
+    return await ask_expert_question(update, context, question)
+
+
+@require_auth
+async def cb_expert_end(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
+    query = update.callback_query
+    await query.answer()
+    if context.user_data.get(_EXPERT_BUSY):
+        return State.EXPERT_ADVICE
+    tele_user_id = update.effective_user.id
+    session_id = context.user_data.get(_EXPERT_SESSION)
+    if session_id:
+        await close_expert_session(session_id, tele_user_id)
+    context.user_data.pop(_EXPERT_MODE, None)
+    context.user_data.pop(_EXPERT_BUSY, None)
+    context.user_data.pop(_EXPERT_SESSION, None)
+    context.user_data.pop(_EXPERT_CONTEXT, None)
+    context.user_data["state"] = State.IDLE
+    try:
+        await query.edit_message_text(expert_goodbye())
+    except Exception:
+        pass
+    await render_expert_summary(update, context)
     return State.IDLE

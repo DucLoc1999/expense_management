@@ -21,6 +21,8 @@ from bot.responses import (
 )
 from bot.keyboards import welcome_keyboard
 from bot.states import State
+from bot.models import _EXPERT_BUSY
+from bot.expert import expert_guard, handle_expert_exit
 from db.models import (
     get_categories,
     add_category,
@@ -33,7 +35,9 @@ from db.models import (
 
 
 @require_auth
-async def cmd_start(update: Update, _context: ContextTypes.DEFAULT_TYPE) -> int:
+async def cmd_start(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
+    await handle_expert_exit(update, context)
+    context.user_data.pop(_EXPERT_BUSY, None)
     await update.message.reply_text(
         welcome(), parse_mode="HTML", reply_markup=welcome_keyboard()
     )
@@ -41,7 +45,8 @@ async def cmd_start(update: Update, _context: ContextTypes.DEFAULT_TYPE) -> int:
 
 
 @require_auth
-async def cmd_categories(update: Update, _context: ContextTypes.DEFAULT_TYPE) -> int:
+@expert_guard
+async def cmd_categories(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
     cats = await get_categories(update.effective_user.id)
     await update.message.reply_text(
         categories_list(cats), parse_mode="HTML"
@@ -50,6 +55,7 @@ async def cmd_categories(update: Update, _context: ContextTypes.DEFAULT_TYPE) ->
 
 
 @require_auth
+@expert_guard
 async def cmd_addcat(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
     args = context.args
     if not args:
@@ -62,6 +68,7 @@ async def cmd_addcat(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
 
 
 @require_auth
+@expert_guard
 async def cmd_delcat(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
     args = context.args
     if not args:
@@ -74,7 +81,8 @@ async def cmd_delcat(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
 
 
 @require_auth
-async def cmd_history(update: Update, _context: ContextTypes.DEFAULT_TYPE) -> int:
+@expert_guard
+async def cmd_history(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
     bills = await get_recent_bills(update.effective_user.id, limit=5)
     await update.message.reply_text(
         history_list(bills), parse_mode="HTML"
@@ -83,6 +91,7 @@ async def cmd_history(update: Update, _context: ContextTypes.DEFAULT_TYPE) -> in
 
 
 @require_auth
+@expert_guard
 async def cmd_language(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
     from bot.i18n import set_locale, get_available_locales
     args = context.args
@@ -99,7 +108,8 @@ async def cmd_language(update: Update, context: ContextTypes.DEFAULT_TYPE) -> in
 
 
 @require_auth
-async def cmd_users(update: Update, _context: ContextTypes.DEFAULT_TYPE) -> int:
+@expert_guard
+async def cmd_users(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
     if not is_admin(update.effective_user.id):
         await update.message.reply_text(admin_denied())
         return State.IDLE
@@ -109,6 +119,7 @@ async def cmd_users(update: Update, _context: ContextTypes.DEFAULT_TYPE) -> int:
 
 
 @require_auth
+@expert_guard
 async def cmd_adduser(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
     if not is_admin(update.effective_user.id):
         await update.message.reply_text(admin_denied())
@@ -131,6 +142,7 @@ async def cmd_adduser(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int
 
 
 @require_auth
+@expert_guard
 async def cmd_removeuser(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
     if not is_admin(update.effective_user.id):
         await update.message.reply_text(admin_denied())

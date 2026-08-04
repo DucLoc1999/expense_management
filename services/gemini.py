@@ -145,3 +145,49 @@ def _b64(data: bytes) -> str:
 
     return base64.b64encode(data).decode()
 
+
+async def ask_advisor(
+    context_text: str,
+    memory: list[str],
+    question: str,
+) -> tuple[str | None, str | None]:
+    """Ask the advisor a text-only question. Returns (answer, error)."""
+    persona = _("expert.advisor.persona")
+    prompt_parts = [
+        persona,
+        _("expert.advisor.context_title"),
+        context_text or "—",
+    ]
+    if memory:
+        prompt_parts.append(_("expert.advisor.memory_title"))
+        prompt_parts.extend(memory)
+    prompt_parts.append(_("expert.advisor.question_title"))
+    prompt_parts.append(question)
+    prompt = "\n\n".join(prompt_parts)
+
+    payload = {
+        "contents": [{"parts": [{"text": prompt}]}],
+        "generationConfig": {"temperature": 0.3, "maxOutputTokens": 2048},
+    }
+
+    try:
+        async with httpx.AsyncClient(timeout=30) as client:
+            resp = await client.post(
+                GEMINI_API_URL,
+                params={"key": config.GEMINI_API_KEY},
+                json=payload,
+            )
+            resp.raise_for_status()
+    except httpx.HTTPError:
+        return None, _("expert.advisor.busy")
+
+    try:
+        raw_text = resp.json()["candidates"][0]["content"]["parts"][0]["text"]
+    except (KeyError, IndexError):
+        return None, _("expert.advisor.busy")
+
+    answer = raw_text.strip()
+    if not answer:
+        return None, _("expert.advisor.busy")
+    return answer, None
+

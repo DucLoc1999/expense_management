@@ -1,4 +1,5 @@
 import html
+from datetime import datetime
 
 from bot.i18n import _, localized_name
 
@@ -216,3 +217,83 @@ def admin_removeuser_ok(tele_user_id: int) -> str:
 
 def admin_removeuser_not_found(tele_user_id: int) -> str:
     return _("admin.removeuser.not_found", id=tele_user_id)
+
+
+def expert_intro() -> str:
+    return _("expert.intro")
+
+
+def expert_summary(summary) -> str:
+    lines = [expert_intro()]
+    start = datetime.strptime(summary.start, "%Y-%m-%d").date()
+    end = datetime.strptime(summary.end, "%Y-%m-%d").date()
+    lines.append(
+        _(
+            "expert.summary.title",
+            start=start.strftime("%d/%m/%Y"),
+            end=end.strftime("%d/%m/%Y"),
+        )
+    )
+    lines.append(_("expert.summary.count", n=summary.count))
+    lines.append(_("expert.summary.total", total=summary.total))
+    lines.append(_("expert.summary.avg_day", avg=summary.avg_per_day))
+    lines.append(_("expert.summary.avg_bill", avg=summary.avg_per_bill))
+    if summary.top_category:
+        lines.append(
+            _(
+                "expert.summary.top_category",
+                name=summary.top_category,
+                share=summary.top_category_share or 0,
+            )
+        )
+    lines.append(expert_comparison(summary))
+    return "\n".join(lines)
+
+
+def expert_comparison(summary) -> str:
+    if summary.change_pct is None:
+        return _("expert.summary.no_previous")
+    pct = abs(summary.change_pct)
+    if summary.change_pct >= 0:
+        return _("expert.summary.comparison_up", pct=pct)
+    return _("expert.summary.comparison_down", pct=pct)
+
+
+def expert_no_data() -> str:
+    return _("expert.no_data")
+
+
+def expert_filter_title() -> str:
+    return _("expert.filter.title")
+
+
+def expert_range_help() -> str:
+    return _("expert.filter.range_help")
+
+
+def expert_advisor_intro(start, end) -> str:
+    return _(
+        "expert.advisor.intro",
+        start=start.strftime("%d/%m/%Y"),
+        end=end.strftime("%d/%m/%Y"),
+    )
+
+
+def expert_no_data_advice() -> str:
+    return _("expert.advisor.no_data")
+
+
+def expert_processing() -> str:
+    return _("expert.advisor.processing")
+
+
+def expert_busy() -> str:
+    return _("expert.advisor.busy")
+
+
+def expert_no_images() -> str:
+    return _("expert.advisor.no_images")
+
+
+def expert_goodbye() -> str:
+    return _("expert.advisor.goodbye")
